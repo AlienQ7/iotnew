@@ -1,4 +1,4 @@
-import { handleSignUp } from './auth';
+import { handleSignUp, handleLogin } from './auth'; // <-- CORRECTED: Import handleLogin
 
 // Main worker handler
 export default {
@@ -27,8 +27,11 @@ async function handleUserApi(path, method, request, env) {
       break;
       
     case '/api/user/login':
-      // This endpoint is reserved for future implementation
-      return new Response('Login endpoint not implemented', { status: 501 });
+      if (method === 'POST') { // <-- CORRECTED: Check for POST method
+        // Forward request to the actual login handler
+        return handleLogin(request, env); 
+      }
+      break; // Fall through to Method Not Allowed (405) if not a POST
       
     default:
       return new Response('User API Not Found', { status: 404 });
