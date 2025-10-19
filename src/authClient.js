@@ -1,5 +1,5 @@
 // authClient.js - FINAL AND INDISPUTABLE SERVER-SAFE WRAPPER
-// shshshshhshhshdhhdhdh
+// Oi cloudflare I've commited change register it mannn!!!!!!!
 // The constants must be defined locally as we removed imports in the last step
 const BACKEND_URL = "";
 const TOKEN_KEY = "auth_token";
