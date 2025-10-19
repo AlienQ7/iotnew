@@ -1,9 +1,9 @@
-// device.js
+// device.js - COMPLETE
 
 import { MAX_DEVICES, MAX_LABEL_LENGTH } from './schedule'; // Import limit constants
 
 // =================================================================
-// DEVICE API HANDLER
+// DEVICE API HANDLERS
 // =================================================================
 
 /**
@@ -18,7 +18,6 @@ export async function handleDeviceAdd(request, env, userEmail) {
 
     // Step 1: Robust JSON Parsing and Data Extraction
     try {
-        // Expects { name: "Living Room Light", device_key: "LRL-48f5a6" }
         ({ name, device_key: deviceKey } = await request.json());
     } catch (e) {
         return new Response('Invalid JSON format or missing fields in request body.', { status: 400 });
@@ -34,8 +33,6 @@ export async function handleDeviceAdd(request, env, userEmail) {
 
     try {
         // Step 3: ENFORCE FREE TIER DEVICE LIMIT
-        
-        // 3a. Count current devices for this user
         const { results } = await env.dataiot.prepare(
             "SELECT COUNT(id) AS device_count FROM devices WHERE user_email = ?"
         ).bind(userEmail).all();
@@ -70,12 +67,87 @@ export async function handleDeviceAdd(request, env, userEmail) {
         });
 
     } catch (error) {
-        // Handle specific unique constraint error (device_key already exists globally)
         if (error.message && error.message.includes('UNIQUE constraint failed: devices.device_key')) {
              return new Response('This unique device key is already registered.', { status: 409 });
         }
         
         console.error("Device registration error:", error);
         return new Response('Internal Server Error during device registration.', { status: 500 });
+    }
+}
+
+
+/**
+ * Retrieves and lists all devices owned by the authenticated user.
+ * @param {Env} env The Worker environment variables.
+ * @param {string} userEmail The authenticated user's email.
+ * @returns {Promise<Response>} A list of devices or an empty array.
+ */
+export async function handleDeviceList(env, userEmail) {
+    try {
+        const { results: devices } = await env.dataiot.prepare(
+            "SELECT id, name, device_key FROM devices WHERE user_email = ?"
+        ).bind(userEmail).all();
+
+        return new Response(JSON.stringify({ success: true, devices }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        });
+        
+    } catch (error) {
+        console.error("Device list error:", error);
+        return new Response('Internal Server Error fetching device list.', { status: 500 });
+    }
+}
+
+
+/**
+ * Deletes a specific device by its ID, ensuring it belongs to the user.
+ * @param {Request} request The incoming Worker request.
+ * @param {Env} env The Worker environment variables.
+ * @param {string} userEmail The authenticated user's email.
+ * @returns {Promise<Response>} Success or failure message.
+ */
+export async function handleDeviceDelete(request, env, userEmail) {
+    // We expect the device ID to be passed as a query parameter or in the body.
+    // For simplicity, let's assume it's a query parameter: ?id=123
+    const url = new URL(request.url);
+    const deviceId = url.searchParams.get('id');
+
+    if (!deviceId) {
+        return new Response('Device ID is required.', { status: 400 });
+    }
+
+    try {
+        // IMPORTANT: We use both deviceId AND userEmail to prevent a user 
+        // from deleting a device they don't own (Access Control).
+        const stmt = env.dataiot.prepare(
+            "DELETE FROM devices WHERE id = ? AND user_email = ?"
+        ).bind(deviceId, userEmail);
+
+        const result = await stmt.run();
+        
+        // Check if any rows were deleted
+        if (result.changes === 0) {
+             return new Response(JSON.stringify({ 
+                success: false, 
+                message: 'Device not found or does not belong to your account.' 
+             }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+        }
+
+        // Deleting the device automatically deletes associated schedules 
+        // due to the FOREIGN KEY ... ON DELETE CASCADE constraint defined earlier.
+
+        return new Response(JSON.stringify({ 
+            success: true, 
+            message: `Device ID ${deviceId} and all its associated schedules have been deleted.` 
+        }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        });
+
+    } catch (error) {
+        console.error("Device deletion error:", error);
+        return new Response('Internal Server Error during device deletion.', { status: 500 });
     }
 }
