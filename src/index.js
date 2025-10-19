@@ -1,6 +1,7 @@
 import { handleSignUp, handleLogin } from './auth';
-import { verifyJWT } from './session'; // Imports the verification logic
-import { handleSetSchedule } from './schedule'; // Imports the new schedule handler and limits
+import { verifyJWT } from './session'; 
+import { handleSetSchedule } from './schedule'; 
+import { handleDeviceAdd } from './device'; // <-- NEW: Import the device handler
 
 // =================================================================
 // JWT Authorization Middleware
@@ -42,6 +43,7 @@ async function authorizeRequest(request, env) {
     }
 
     // 3. Success! Return the user context.
+    // Note: We currently only return email, as we skipped the 'tier' claim for now.
     return { user: { email: decodedPayload.email } };
 }
 
@@ -65,6 +67,13 @@ export default {
     // Default response for the root
     return new Response('Welcome to IoT Hub API. Try POSTing to /api/user/signup', { status: 200 });
   },
+  
+  // Placeholder for the Cron Trigger logic (Scheduled Worker)
+  // This is active because you updated wrangler.toml
+  async scheduled(event, env, ctx) {
+      console.log("Cron worker triggered to check schedules. (Logic to be implemented later)");
+      // TODO: Implement logic to query D1 for due schedules and dispatch actions.
+  }
 };
 
 // =================================================================
@@ -107,8 +116,8 @@ async function handleProtectedApi(path, method, request, env) {
     switch (path) {
         case '/api/device/add':
             if (method === 'POST') {
-                // Placeholder for device registration logic (Next step after schedules)
-                return new Response('Device Add endpoint (WIP)', { status: 200 }); 
+                // Calls the handler that enforces the MAX_DEVICES limit
+                return handleDeviceAdd(request, env, userEmail);
             }
             break;
         
