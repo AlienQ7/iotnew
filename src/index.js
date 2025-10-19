@@ -2,8 +2,6 @@
 
 // =================================================================
 // IMPORTS
-// =================================================================
-
 import { handleSignUp, handleLogin } from './auth';
 import { verifyJWT } from './session'; 
 // A. IMPORT HTML: The builder turns this file content into a string
