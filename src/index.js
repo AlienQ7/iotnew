@@ -1,5 +1,5 @@
 // index.js - FINAL AND CORRECTED CODE (Addressing all build/frontend issues)
-
+//bullshit cloudflare turtose 
 // =================================================================
 // IMPORTS
 import { handleSignUp, handleLogin } from './auth';
