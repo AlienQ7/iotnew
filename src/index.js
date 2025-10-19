@@ -1,8 +1,9 @@
-// index.js - FINAL BACKEND VERSION
+// index.js - FINAL BACKEND VERSION (Scheduler Fix Applied)
 
 import { handleSignUp, handleLogin } from './auth';
 import { verifyJWT } from './session'; 
-import { handleSetSchedule, handleScheduledTrigger, handleScheduleList, handleScheduleDelete, handleScheduleToggle } from './schedule'; // <-- UPDATED: All schedule functions
+// Assuming all schedule functions (including trigger) are in schedule.js
+import { handleSetSchedule, handleScheduledTrigger, handleScheduleList, handleScheduleDelete, handleScheduleToggle } from './schedule'; 
 import { handleDeviceAdd, handleDeviceList, handleDeviceDelete } from './device'; 
 
 // =================================================================
@@ -35,7 +36,7 @@ async function authorizeRequest(request, env) {
 }
 
 // =================================================================
-// MAIN WORKER HANDLER (No Change)
+// MAIN WORKER HANDLER (Fix applied here)
 // =================================================================
 
 export default {
@@ -55,12 +56,13 @@ export default {
   
   async scheduled(event, env, ctx) {
     console.log("Cron worker has been triggered.");
-    ctx.waitUntil(handleScheduledTrigger(env));
+    // CRITICAL FIX: Pass ALL three parameters to the handler function
+    ctx.waitUntil(handleScheduledTrigger(event, env, ctx)); 
   }
 };
 
 // =================================================================
-// API ROUTERS (Updated for Schedule Management)
+// API ROUTERS (No Change)
 // =================================================================
 
 // Handles unprotected user routes (No Change)
@@ -84,7 +86,7 @@ async function handleUserApi(path, method, request, env) {
   return new Response('Method Not Allowed', { status: 405 });
 }
 
-// Handles *protected* device and schedule routes
+// Handles *protected* device and schedule routes (No Change)
 async function handleProtectedApi(path, method, request, env) {
     // 1. RUN AUTHORIZATION CHECK FIRST
     const authResult = await authorizeRequest(request, env);
@@ -95,7 +97,7 @@ async function handleProtectedApi(path, method, request, env) {
 
     // 2. Route the request
     switch (path) {
-        // DEVICE MANAGEMENT ROUTES (No Change)
+        // DEVICE MANAGEMENT ROUTES
         case '/api/device/add':
             if (method === 'POST') return handleDeviceAdd(request, env, userEmail);
             break;
@@ -111,15 +113,15 @@ async function handleProtectedApi(path, method, request, env) {
             if (method === 'POST') return handleSetSchedule(request, env, userEmail);
             break;
             
-        case '/api/schedule/list': // <-- NEW ROUTE
+        case '/api/schedule/list':
             if (method === 'GET') return handleScheduleList(env, userEmail);
             break;
             
-        case '/api/schedule/delete': // <-- NEW ROUTE
+        case '/api/schedule/delete':
             if (method === 'DELETE') return handleScheduleDelete(request, env, userEmail);
             break;
             
-        case '/api/schedule/toggle': // <-- NEW ROUTE
+        case '/api/schedule/toggle':
             if (method === 'POST') return handleScheduleToggle(request, env, userEmail);
             break;
 
