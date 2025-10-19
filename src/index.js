@@ -1,7 +1,8 @@
 import { handleSignUp, handleLogin } from './auth';
 import { verifyJWT } from './session'; 
 import { handleSetSchedule } from './schedule'; 
-import { handleDeviceAdd } from './device'; // <-- NEW: Import the device handler
+import { handleDeviceAdd } from './device'; 
+import { handleScheduledTrigger } from './scheduler'; // <-- NEW: Import the scheduler trigger
 
 // =================================================================
 // JWT Authorization Middleware
@@ -43,7 +44,6 @@ async function authorizeRequest(request, env) {
     }
 
     // 3. Success! Return the user context.
-    // Note: We currently only return email, as we skipped the 'tier' claim for now.
     return { user: { email: decodedPayload.email } };
 }
 
@@ -52,6 +52,9 @@ async function authorizeRequest(request, env) {
 // =================================================================
 
 export default {
+  /**
+   * Handles all incoming HTTP requests (API routes).
+   */
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
@@ -60,7 +63,7 @@ export default {
     if (path.startsWith('/api/user/')) {
       return handleUserApi(path, method, request, env);
     } else if (path.startsWith('/api/device/') || path.startsWith('/api/schedule/')) {
-      // New protected API routes
+      // Protected API routes
       return handleProtectedApi(path, method, request, env);
     }
     
@@ -68,11 +71,14 @@ export default {
     return new Response('Welcome to IoT Hub API. Try POSTing to /api/user/signup', { status: 200 });
   },
   
-  // Placeholder for the Cron Trigger logic (Scheduled Worker)
-  // This is active because you updated wrangler.toml
+  /**
+   * Handles scheduled Cron events (The heartbeat of the system).
+   */
   async scheduled(event, env, ctx) {
-      console.log("Cron worker triggered to check schedules. (Logic to be implemented later)");
-      // TODO: Implement logic to query D1 for due schedules and dispatch actions.
+    // We use ctx.waitUntil to ensure the asynchronous database queries 
+    // and action dispatches finish before the Worker is terminated.
+    console.log("Cron worker has been triggered.");
+    ctx.waitUntil(handleScheduledTrigger(env));
   }
 };
 
