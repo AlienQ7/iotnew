@@ -1,4 +1,5 @@
-// schedule.js - COMPLETE
+// schedule.js - COMPLETE (FIXED handleScheduledTrigger signature)
+
 // TIER AND SYSTEM LIMITS (Configurable Constants)
 export const MAX_SCHEDULES = 5;      
 export const MAX_DEVICES = 5;        
@@ -24,9 +25,12 @@ function isDue(cronExpression, nowUtc) {
 
 /**
  * The main handler executed every minute by the Cron Trigger.
+ * CRITICAL FIX: Updated to accept all three parameters (event, env, ctx).
+ * @param {Event} event The scheduled event (required by runtime).
  * @param {Env} env The Worker environment variables.
+ * @param {Context} ctx The execution context.
  */
-export async function handleScheduledTrigger(env) {
+export async function handleScheduledTrigger(event, env, ctx) {
     const nowUtc = new Date();
     console.log(`[SCHEDULER] Running check for UTC time: ${nowUtc.toISOString()}`);
     
@@ -58,7 +62,7 @@ export async function handleScheduledTrigger(env) {
 
 
 /**
- * Handles setting a new schedule and enforces the Free Tier limit. (No Change)
+ * Handles setting a new schedule and enforces the Free Tier limit.
  */
 export async function handleSetSchedule(request, env, userEmail) {
     // ... (Existing handleSetSchedule logic remains here) ...
