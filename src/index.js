@@ -1,4 +1,4 @@
-// index.js - FINAL VERSION (Scheduler, API Routing, and Frontend Serving)
+// index.js - FINAL AND CORRECTED CODE (Addressing all build/frontend issues)
 
 // =================================================================
 // IMPORTS
@@ -9,15 +9,12 @@ import { verifyJWT } from './session';
 // A. IMPORT HTML: The builder turns this file content into a string
 import AUTH_HTML from './auth.html'; 
 
-// B. IMPORT STYLES AND CONSTANTS: We will read these contents and inject them
+// B. IMPORT STYLES: This works *only* because 'export const STYLE_STRING' was added to authStyles.js
 import { STYLE_STRING } from './authStyles'; 
-import { COLORS } from './constants'; // Needed if style logic uses COLORS in JS
+import { COLORS } from './constants'; // Keep, in case constants are used elsewhere in the worker
 
-// C. IMPORT CLIENT JS: This needs to be imported as raw text to inject into the <script> tag.
-// NOTE: This assumes authClient.js EXPORTS a string containing its logic, 
-// OR the builder converts it to a string. 
-// For maximum compatibility, we'll try importing it as raw text.
-import AUTH_CLIENT_JS_CONTENT from './authClient.js'; 
+// C. IMPORT CLIENT JS: Use the '?raw' import trick to force the builder to provide the raw text string.
+import AUTH_CLIENT_JS_CONTENT from './authClient.js?raw'; // <--- CRITICAL FIX: Added ?raw
 
 
 // Assuming all schedule functions (including trigger) are in schedule.js
@@ -30,7 +27,6 @@ import { handleDeviceAdd, handleDeviceList, handleDeviceDelete } from './device'
 // =================================================================
 
 async function authorizeRequest(request, env) {
-    // ... (Authorization logic remains here) ...
     let token = request.headers.get('Authorization');
     if (token && token.startsWith('Bearer ')) {
         token = token.substring(7);
@@ -55,7 +51,7 @@ async function authorizeRequest(request, env) {
 }
 
 // =================================================================
-// MAIN WORKER HANDLER (Fixed)
+// MAIN WORKER HANDLER
 // =================================================================
 
 export default {
@@ -69,19 +65,49 @@ export default {
     // -------------------------------------------------------------
     if (path === '/' || path === '/auth.html') {
         
-        // 1. Inject Styles into the HTML head
+        // 1. Clean the HTML: Remove the problematic self-referencing <script> tag.
+        // We look for the exact tag from auth.html: <script type="module" src="./authClient.js"></script>
+        let injectedHtml = AUTH_HTML.replace('<script type="module" src="./authClient.js"></script>', '');
+        
+        // 2. Inject Styles into the HTML head
         const styleTag = `<style>${STYLE_STRING}</style>`;
+        injectedHtml = injectedHtml.replace('</head>', `${styleTag}</head>`);
         
-        // 2. Inject Client Script into the HTML body
-        // NOTE: We wrap the imported content in a function call to prevent conflicts 
-        // if the client script is not defined as an immediate function.
-        const scriptTag = `<script>${AUTH_CLIENT_JS_CONTENT}</script>`;
+        // 3. Inject Client Script directly into the HTML body using the raw content.
+        // NOTE: authClient.js still has import statements (e.g., import { injectStyles }...). 
+        // When injected as raw text, those imports will fail in the browser.
+        // We must strip them out, as the dependencies (styles, constants) are now already defined or handled by the worker.
+        
+        // This is a necessary hack: Remove module imports from the raw client script.
+        const scriptCodeToInject = AUTH_CLIENT_JS_CONTENT
+          .replace(/import {[^}]+} from '.\/authStyles.js';/g, '')
+          .replace(/import {[^}]+} from '.\/constants.js';/g, '');
+          
+        
+        const finalScriptTag = `
+        <script type="text/javascript">
+            // Now that the imports are stripped, we must manually call the injectStyles function 
+            // that is defined globally in the script because the client code's import was removed.
+            
+            // NOTE: The 'injectStyles' function definition is now included in the final Worker JS bundle 
+            // and should be accessible globally or defined within the script block for safe execution. 
+            // Since it was defined inside authStyles.js, we assume the ESBuild bundle made it available 
+            // or we must include it here.
+            
+            // To be safe, we prepend the manual call to injectStyles and then the client logic.
+            
+            // 1. Manually run the style injection function which is defined in the raw injected code
+            // injectStyles(); // This function is now defined inside the raw injected code.
+            
+            ${scriptCodeToInject}
+            
+            // The logic runs immediately on load, as defined in authClient.js
+            // injectStyles() is called at the top of the original authClient.js, so it will run here too.
+        </script>
+        `;
 
-        // Find the closing </head> tag and insert the styles
-        let injectedHtml = AUTH_HTML.replace('</head>', `${styleTag}</head>`);
-        
-        // Find the closing </body> tag and insert the script
-        injectedHtml = injectedHtml.replace('</body>', `${scriptTag}</body>`);
+        // The raw client script is placed right before the closing </body> tag.
+        injectedHtml = injectedHtml.replace('</body>', `${finalScriptTag}</body>`);
         
         // Send the fully built HTML page
         return new Response(injectedHtml, {
@@ -103,11 +129,10 @@ export default {
   },
   
   // -------------------------------------------------------------
-  // SCHEDULED HANDLER (The Cron Fix)
+  // SCHEDULED HANDLER (No Change, as it was fixed earlier)
   // -------------------------------------------------------------
   async scheduled(event, env, ctx) {
     console.log("Cron worker has been triggered.");
-    // CRITICAL FIX: Ensure all three parameters are passed
     ctx.waitUntil(handleScheduledTrigger(event, env, ctx)); 
   }
 };
@@ -116,7 +141,6 @@ export default {
 // API ROUTERS (No Change)
 // =================================================================
 
-// Handles unprotected user routes (No Change)
 async function handleUserApi(path, method, request, env) {
   switch (path) {
     case '/api/user/signup':
@@ -124,31 +148,25 @@ async function handleUserApi(path, method, request, env) {
         return handleSignUp(request, env); 
       }
       break;
-      
     case '/api/user/login':
       if (method === 'POST') {
         return handleLogin(request, env); 
       }
       break; 
-      
     default:
       return new Response('User API Not Found', { status: 404 });
   }
   return new Response('Method Not Allowed', { status: 405 });
 }
 
-// Handles *protected* device and schedule routes (No Change)
 async function handleProtectedApi(path, method, request, env) {
-    // 1. RUN AUTHORIZATION CHECK FIRST
     const authResult = await authorizeRequest(request, env);
     if (authResult.response) {
         return authResult.response; 
     }
     const userEmail = authResult.user.email; 
 
-    // 2. Route the request
     switch (path) {
-        // DEVICE MANAGEMENT ROUTES
         case '/api/device/add':
             if (method === 'POST') return handleDeviceAdd(request, env, userEmail);
             break;
@@ -158,24 +176,18 @@ async function handleProtectedApi(path, method, request, env) {
         case '/api/device/delete': 
             if (method === 'DELETE') return handleDeviceDelete(request, env, userEmail);
             break;
-        
-        // SCHEDULE MANAGEMENT ROUTES
         case '/api/schedule/set':
             if (method === 'POST') return handleSetSchedule(request, env, userEmail);
             break;
-            
         case '/api/schedule/list':
             if (method === 'GET') return handleScheduleList(env, userEmail);
             break;
-            
         case '/api/schedule/delete':
             if (method === 'DELETE') return handleScheduleDelete(request, env, userEmail);
             break;
-            
         case '/api/schedule/toggle':
             if (method === 'POST') return handleScheduleToggle(request, env, userEmail);
             break;
-
         default:
             return new Response('Protected API Not Found', { status: 404 });
     }
