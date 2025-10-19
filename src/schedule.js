@@ -1,8 +1,5 @@
 // schedule.js - COMPLETE
-
-// =================================================================
 // TIER AND SYSTEM LIMITS (Configurable Constants)
-// =================================================================
 export const MAX_SCHEDULES = 5;      
 export const MAX_DEVICES = 5;        
 export const MAX_CRON_FIELD_LENGTH = 10; 
