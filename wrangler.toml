@@ -16,6 +16,14 @@ database_id = "8bf6050b-5d7a-49fd-8074-18ade07b9eb1"
 # ... other config ...
 
 # === FIX: Use the simple [triggers] format ===
-[triggers]
+#[triggers]
 # The crons key must hold an array of strings
-crons = ["* * * * *"]
+#crons = ["* * * * *"]
+# wrangler.toml
+# ... other config ...
+
+# === FIX: Use the modern [[triggers.crons]] format ===
+[[triggers.crons]]
+# The cron key must hold a single string
+cron = "* * * * *"
+
