@@ -1,16 +1,16 @@
-// index.js - COMPLETE
+// index.js - FINAL BACKEND VERSION
 
 import { handleSignUp, handleLogin } from './auth';
 import { verifyJWT } from './session'; 
-import { handleSetSchedule } from './schedule'; 
-import { handleDeviceAdd, handleDeviceList, handleDeviceDelete } from './device'; // <-- UPDATED: Import List and Delete
-import { handleScheduledTrigger } from './scheduler'; 
+import { handleSetSchedule, handleScheduledTrigger, handleScheduleList, handleScheduleDelete, handleScheduleToggle } from './schedule'; // <-- UPDATED: All schedule functions
+import { handleDeviceAdd, handleDeviceList, handleDeviceDelete } from './device'; 
 
 // =================================================================
 // JWT Authorization Middleware (No Change)
 // =================================================================
 
 async function authorizeRequest(request, env) {
+    // ... (Authorization logic remains here) ...
     let token = request.headers.get('Authorization');
     if (token && token.startsWith('Bearer ')) {
         token = token.substring(7);
@@ -60,7 +60,7 @@ export default {
 };
 
 // =================================================================
-// API ROUTERS (Updated for Device Management)
+// API ROUTERS (Updated for Schedule Management)
 // =================================================================
 
 // Handles unprotected user routes (No Change)
@@ -95,35 +95,37 @@ async function handleProtectedApi(path, method, request, env) {
 
     // 2. Route the request
     switch (path) {
+        // DEVICE MANAGEMENT ROUTES (No Change)
         case '/api/device/add':
-            if (method === 'POST') {
-                return handleDeviceAdd(request, env, userEmail);
-            }
+            if (method === 'POST') return handleDeviceAdd(request, env, userEmail);
+            break;
+        case '/api/device/list': 
+            if (method === 'GET') return handleDeviceList(env, userEmail);
+            break;
+        case '/api/device/delete': 
+            if (method === 'DELETE') return handleDeviceDelete(request, env, userEmail);
             break;
         
-        case '/api/device/list': // <-- NEW ROUTE
-            if (method === 'GET') {
-                return handleDeviceList(env, userEmail);
-            }
+        // SCHEDULE MANAGEMENT ROUTES
+        case '/api/schedule/set':
+            if (method === 'POST') return handleSetSchedule(request, env, userEmail);
             break;
             
-        case '/api/device/delete': // <-- NEW ROUTE
-            if (method === 'DELETE') {
-                // DELETE operations often require the request object to parse parameters
-                return handleDeviceDelete(request, env, userEmail);
-            }
+        case '/api/schedule/list': // <-- NEW ROUTE
+            if (method === 'GET') return handleScheduleList(env, userEmail);
             break;
-        
-        case '/api/schedule/set':
-            if (method === 'POST') {
-                return handleSetSchedule(request, env, userEmail);
-            }
+            
+        case '/api/schedule/delete': // <-- NEW ROUTE
+            if (method === 'DELETE') return handleScheduleDelete(request, env, userEmail);
+            break;
+            
+        case '/api/schedule/toggle': // <-- NEW ROUTE
+            if (method === 'POST') return handleScheduleToggle(request, env, userEmail);
             break;
 
         default:
             return new Response('Protected API Not Found', { status: 404 });
     }
 
-    // Method Not Allowed
     return new Response('Method Not Allowed', { status: 405 });
 }
