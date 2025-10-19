@@ -1,26 +1,20 @@
+// index.js - COMPLETE
+
 import { handleSignUp, handleLogin } from './auth';
 import { verifyJWT } from './session'; 
 import { handleSetSchedule } from './schedule'; 
-import { handleDeviceAdd } from './device'; 
-import { handleScheduledTrigger } from './scheduler'; // <-- NEW: Import the scheduler trigger
+import { handleDeviceAdd, handleDeviceList, handleDeviceDelete } from './device'; // <-- UPDATED: Import List and Delete
+import { handleScheduledTrigger } from './scheduler'; 
 
 // =================================================================
-// JWT Authorization Middleware
+// JWT Authorization Middleware (No Change)
 // =================================================================
 
-/**
- * Extracts and verifies the JWT from the request, returning the user context or an error response.
- * @param {Request} request The incoming Worker request.
- * @param {Env} env The Worker environment variables (for JWT_SECRET).
- * @returns {Promise<{user: {email: string}, response: Response}|null>} The user object on success, or an object containing an unauthorized Response.
- */
 async function authorizeRequest(request, env) {
-    // 1. Get token from Authorization header (Preferred method)
     let token = request.headers.get('Authorization');
     if (token && token.startsWith('Bearer ')) {
         token = token.substring(7);
     } else {
-        // Fallback: Get token from cookie (as set in handleLogin)
         const cookieHeader = request.headers.get('Cookie');
         if (cookieHeader) {
             const cookies = cookieHeader.split(';').map(c => c.trim());
@@ -30,31 +24,21 @@ async function authorizeRequest(request, env) {
             }
         }
     }
-
     if (!token) {
         return { response: new Response('Missing Authorization Token.', { status: 401 }) };
     }
-
-    // 2. Verify and decode JWT
     const decodedPayload = await verifyJWT(token, env.JWT_SECRET);
-    
-    // Check for expiration or invalid token
     if (!decodedPayload || !decodedPayload.email) {
         return { response: new Response('Invalid or Expired Token. Please log in again.', { status: 401 }) };
     }
-
-    // 3. Success! Return the user context.
     return { user: { email: decodedPayload.email } };
 }
 
 // =================================================================
-// MAIN WORKER HANDLER
+// MAIN WORKER HANDLER (No Change)
 // =================================================================
 
 export default {
-  /**
-   * Handles all incoming HTTP requests (API routes).
-   */
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
@@ -63,30 +47,23 @@ export default {
     if (path.startsWith('/api/user/')) {
       return handleUserApi(path, method, request, env);
     } else if (path.startsWith('/api/device/') || path.startsWith('/api/schedule/')) {
-      // Protected API routes
       return handleProtectedApi(path, method, request, env);
     }
     
-    // Default response for the root
     return new Response('Welcome to IoT Hub API. Try POSTing to /api/user/signup', { status: 200 });
   },
   
-  /**
-   * Handles scheduled Cron events (The heartbeat of the system).
-   */
   async scheduled(event, env, ctx) {
-    // We use ctx.waitUntil to ensure the asynchronous database queries 
-    // and action dispatches finish before the Worker is terminated.
     console.log("Cron worker has been triggered.");
     ctx.waitUntil(handleScheduledTrigger(env));
   }
 };
 
 // =================================================================
-// API ROUTERS
+// API ROUTERS (Updated for Device Management)
 // =================================================================
 
-// Handles unprotected user routes (signup, login)
+// Handles unprotected user routes (No Change)
 async function handleUserApi(path, method, request, env) {
   switch (path) {
     case '/api/user/signup':
@@ -104,8 +81,6 @@ async function handleUserApi(path, method, request, env) {
     default:
       return new Response('User API Not Found', { status: 404 });
   }
-  
-  // Method Not Allowed
   return new Response('Method Not Allowed', { status: 405 });
 }
 
@@ -114,22 +89,33 @@ async function handleProtectedApi(path, method, request, env) {
     // 1. RUN AUTHORIZATION CHECK FIRST
     const authResult = await authorizeRequest(request, env);
     if (authResult.response) {
-        return authResult.response; // Unauthorized response returned
+        return authResult.response; 
     }
-    const userEmail = authResult.user.email; // Extracted user email
+    const userEmail = authResult.user.email; 
 
     // 2. Route the request
     switch (path) {
         case '/api/device/add':
             if (method === 'POST') {
-                // Calls the handler that enforces the MAX_DEVICES limit
                 return handleDeviceAdd(request, env, userEmail);
+            }
+            break;
+        
+        case '/api/device/list': // <-- NEW ROUTE
+            if (method === 'GET') {
+                return handleDeviceList(env, userEmail);
+            }
+            break;
+            
+        case '/api/device/delete': // <-- NEW ROUTE
+            if (method === 'DELETE') {
+                // DELETE operations often require the request object to parse parameters
+                return handleDeviceDelete(request, env, userEmail);
             }
             break;
         
         case '/api/schedule/set':
             if (method === 'POST') {
-                // Calls the handler that enforces the MAX_SCHEDULES limit
                 return handleSetSchedule(request, env, userEmail);
             }
             break;
