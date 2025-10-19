@@ -12,7 +12,7 @@ import { STYLE_STRING } from './authStyles';
 import { COLORS } from './constants'; // Keep, in case constants are used elsewhere in the worker
 
 // C. IMPORT CLIENT JS: Use the '?raw' import trick to force the builder to provide the raw text string.
-import AUTH_CLIENT_JS_CONTENT from './authClient.js?raw'; // <--- CRITICAL FIX: Added ?raw
+import * as AUTH_CLIENT_JS_CONTENT from './authClient.js'; // <--- CRITICAL FIX: Added ?raw
 
 
 // Assuming all schedule functions (including trigger) are in schedule.js
