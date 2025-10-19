@@ -1,7 +1,4 @@
-// authClient.js - CORRECTED FOR WORKER INJECTION
-
-// NOTE: We keep the imports to satisfy the *build system* in case it still tries to resolve them, 
-// BUT we remove the calls to injectStyles() and checkAuthStatus() which crash the server.
+// authClient.js - CORRECTED FOR WORKER INJEC
 
 import { injectStyles } from './authStyles.js';
 import { BACKEND_URL, TOKEN_KEY, COLORS } from './constants.js'; // Keep imports for constants
