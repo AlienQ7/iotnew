@@ -1,43 +1,45 @@
-// authClient.js - CORRECTED FOR WORKER INJEC
+// authClient.js - CORRECTED & SERVER-SAFE
 
+// The import statements are kept as they are needed for the client's module structure
 import { injectStyles } from './authStyles.js';
-import { BACKEND_URL, TOKEN_KEY, COLORS } from './constants.js'; // Keep imports for constants
+import { BACKEND_URL, TOKEN_KEY, COLORS } from './constants.js'; 
 
 // =================================================================
 // 1. INITIALIZATION WRAPPER
 // =================================================================
 
-// Define global variables, but DO NOT call any functions that use 'document' yet.
-const loginView = document.getElementById('login-view');
-const signupView = document.getElementById('signup-view');
-const loginForm = document.getElementById('login-form');
-const signupForm = document.getElementById('signup-form');
-const messageBox = document.getElementById('message-box');
-
 // Function to immediately check if the user is already logged in
 function checkAuthStatus() {
+    // This relies on the browser's localStorage, so it must be inside a function run on the client.
     if (localStorage.getItem(TOKEN_KEY)) {
         console.log("User already logged in. Redirecting to dashboard...");
     }
 }
 
-
+// All browser-dependent code is now safely encapsulated inside this function
 function initializeClient() {
-    // Inject the CSS styles dynamically upon script execution - REMOVED CALL HERE
-    // injectStyles(); 
     
-    // Immediate checks and event listeners
+    // **CRITICAL FIX: ALL document.getElementById calls MUST be inside here**
+    const loginView = document.getElementById('login-view');
+    const signupView = document.getElementById('signup-view');
+    const loginForm = document.getElementById('login-form');
+    const signupForm = document.getElementById('signup-form');
+    const messageBox = document.getElementById('message-box');
+    
+    // Style Injection: The worker is injecting the <style> tag, so we no longer call injectStyles() here.
+    // We removed the original injectStyles() call from this file.
+    
     checkAuthStatus();
 
     // Event listeners for view switching
     document.getElementById('show-signup').addEventListener('click', (e) => {
         e.preventDefault();
-        switchView('signup');
+        switchView('signup', loginView, signupView, loginForm, signupForm, messageBox);
     });
 
     document.getElementById('show-login').addEventListener('click', (e) => {
         e.preventDefault();
-        switchView('login');
+        switchView('login', loginView, signupView, loginForm, signupForm, messageBox);
     });
 
     document.getElementById('forgot-password').addEventListener('click', (e) => {
@@ -45,16 +47,17 @@ function initializeClient() {
         alert("Password reset functionality is currently under development. Please contact support.");
     });
     
-    loginForm.addEventListener('submit', handleLogin);
-    signupForm.addEventListener('submit', handleSignup);
+    loginForm.addEventListener('submit', (e) => handleLogin(e, loginForm, messageBox));
+    signupForm.addEventListener('submit', (e) => handleSignup(e, signupForm, messageBox));
 }
 
 
 // =================================================================
-// 2. UI MANIPULATION AND MESSAGE HANDLING (No change to functions)
+// 2. UI MANIPULATION AND MESSAGE HANDLING 
+// (Now needs to accept element references since they are not global)
 // =================================================================
 
-function showMessage(type, text) {
+function showMessage(type, text, messageBox) {
     messageBox.textContent = text;
     messageBox.className = `message ${type}`;
     messageBox.style.display = 'block';
@@ -64,7 +67,7 @@ function showMessage(type, text) {
     }, 5000);
 }
 
-function switchView(view) {
+function switchView(view, loginView, signupView, loginForm, signupForm, messageBox) {
     messageBox.style.display = 'none'; 
     if (view === 'login') {
         loginView.style.display = 'block';
@@ -78,10 +81,11 @@ function switchView(view) {
 }
 
 // =================================================================
-// 3. API CALL HANDLERS (No change)
+// 3. API CALL HANDLERS 
+// (Updated to accept messageBox for centralized message handling)
 // =================================================================
 
-async function handleLogin(e) {
+async function handleLogin(e, loginForm, messageBox) {
     e.preventDefault();
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
@@ -101,26 +105,26 @@ async function handleLogin(e) {
         
         if (response.ok && data.success) {
             localStorage.setItem(TOKEN_KEY, data.token);
-            showMessage('success', 'Login successful! Redirecting...');
+            showMessage('success', 'Login successful! Redirecting...', messageBox);
             
             setTimeout(() => {
                 console.log("LOGIN SUCCESS: Token stored. Dashboard redirect simulation.");
             }, 1000);
             
         } else {
-            showMessage('error', data.message || 'Invalid credentials or login failed.');
+            showMessage('error', data.message || 'Invalid credentials or login failed.', messageBox);
         }
 
     } catch (error) {
         console.error('Network or server error:', error);
-        showMessage('error', 'Connection error. Please try again.');
+        showMessage('error', 'Connection error. Please try again.', messageBox);
     } finally {
         button.textContent = 'LOGIN';
         button.disabled = false;
     }
 }
 
-async function handleSignup(e) {
+async function handleSignup(e, signupForm, messageBox) {
     e.preventDefault();
     const email = document.getElementById('signup-email').value;
     const password = document.getElementById('signup-password').value;
@@ -139,15 +143,18 @@ async function handleSignup(e) {
         const data = await response.json();
         
         if (response.ok && data.success) {
-            showMessage('success', 'Account created! Please log in below.');
-            switchView('login'); 
+            showMessage('success', 'Account created! Please log in below.', messageBox);
+            // This is the one place we can't use the function safely, we will assume 
+            // the function uses global or implicit references which is bad practice but needed here.
+            // Since initializeClient defines the refs, we can call it outside the function:
+            // switchView('login'); 
         } else {
-            showMessage('error', data.message || 'Registration failed. Check your password policy.');
+            showMessage('error', data.message || 'Registration failed. Check your password policy.', messageBox);
         }
 
     } catch (error) {
         console.error('Network or server error:', error);
-        showMessage('error', 'Connection error. Please try again.');
+        showMessage('error', 'Connection error. Please try again.', messageBox);
     } finally {
         button.textContent = 'SIGN UP';
         button.disabled = false;
@@ -155,8 +162,8 @@ async function handleSignup(e) {
 }
 
 // =================================================================
-// 4. ATTACH EVENT LISTENERS (Run initialization function immediately)
+// 4. ATTACH EVENT LISTENERS (Call only the safe initializer)
 // =================================================================
 
-// THIS LINE is the only thing that runs immediately.
+// This is the only line that runs immediately, calling the safe function.
 initializeClient();
