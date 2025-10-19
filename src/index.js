@@ -1,18 +1,61 @@
-// index.js - FINAL BACKEND VERSION (with auth.html Import)
+// index.js - FINAL VERSION (Scheduler, API Routing, and Frontend Serving)
+
+// =================================================================
+// IMPORTS
+// =================================================================
 
 import { handleSignUp, handleLogin } from './auth';
 import { verifyJWT } from './session'; 
-// *** CRITICAL FIX: IMPORT THE HTML FILE AS RAW TEXT ***
+// A. IMPORT HTML: The builder turns this file content into a string
 import AUTH_HTML from './auth.html'; 
+
+// B. IMPORT STYLES AND CONSTANTS: We will read these contents and inject them
+import { STYLE_STRING } from './authStyles'; 
+import { COLORS } from './constants'; // Needed if style logic uses COLORS in JS
+
+// C. IMPORT CLIENT JS: This needs to be imported as raw text to inject into the <script> tag.
+// NOTE: This assumes authClient.js EXPORTS a string containing its logic, 
+// OR the builder converts it to a string. 
+// For maximum compatibility, we'll try importing it as raw text.
+import AUTH_CLIENT_JS_CONTENT from './authClient.js'; 
+
 
 // Assuming all schedule functions (including trigger) are in schedule.js
 import { handleSetSchedule, handleScheduledTrigger, handleScheduleList, handleScheduleDelete, handleScheduleToggle } from './schedule'; 
 import { handleDeviceAdd, handleDeviceList, handleDeviceDelete } from './device'; 
 
-// ... (authorizeRequest function remains the same) ...
 
 // =================================================================
-// MAIN WORKER HANDLER (Serving auth.html)
+// JWT Authorization Middleware (No Change)
+// =================================================================
+
+async function authorizeRequest(request, env) {
+    // ... (Authorization logic remains here) ...
+    let token = request.headers.get('Authorization');
+    if (token && token.startsWith('Bearer ')) {
+        token = token.substring(7);
+    } else {
+        const cookieHeader = request.headers.get('Cookie');
+        if (cookieHeader) {
+            const cookies = cookieHeader.split(';').map(c => c.trim());
+            const authTokenCookie = cookies.find(c => c.startsWith('auth_token='));
+            if (authTokenCookie) {
+                token = authTokenCookie.substring('auth_token='.length);
+            }
+        }
+    }
+    if (!token) {
+        return { response: new Response('Missing Authorization Token.', { status: 401 }) };
+    }
+    const decodedPayload = await verifyJWT(token, env.JWT_SECRET);
+    if (!decodedPayload || !decodedPayload.email) {
+        return { response: new Response('Invalid or Expired Token. Please log in again.', { status: 401 }) };
+    }
+    return { user: { email: decodedPayload.email } };
+}
+
+// =================================================================
+// MAIN WORKER HANDLER (Fixed)
 // =================================================================
 
 export default {
@@ -20,31 +63,55 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
     const method = request.method;
-    
-    // CRITICAL FIX: Route for the root and explicit auth page
+
+    // -------------------------------------------------------------
+    // FRONTEND ROUTING: Serve auth.html on root path
+    // -------------------------------------------------------------
     if (path === '/' || path === '/auth.html') {
-        // Serve the imported HTML content (AUTH_HTML is now the content string)
-        return new Response(AUTH_HTML, {
+        
+        // 1. Inject Styles into the HTML head
+        const styleTag = `<style>${STYLE_STRING}</style>`;
+        
+        // 2. Inject Client Script into the HTML body
+        // NOTE: We wrap the imported content in a function call to prevent conflicts 
+        // if the client script is not defined as an immediate function.
+        const scriptTag = `<script>${AUTH_CLIENT_JS_CONTENT}</script>`;
+
+        // Find the closing </head> tag and insert the styles
+        let injectedHtml = AUTH_HTML.replace('</head>', `${styleTag}</head>`);
+        
+        // Find the closing </body> tag and insert the script
+        injectedHtml = injectedHtml.replace('</body>', `${scriptTag}</body>`);
+        
+        // Send the fully built HTML page
+        return new Response(injectedHtml, {
             status: 200,
             headers: { 'Content-Type': 'text/html' }
         });
     }
+    // -------------------------------------------------------------
 
+    // API ROUTING
     if (path.startsWith('/api/user/')) {
       return handleUserApi(path, method, request, env);
     } else if (path.startsWith('/api/device/') || path.startsWith('/api/schedule/')) {
       return handleProtectedApi(path, method, request, env);
     }
     
-    // Fallback 404
+    // Fallback 404 for non-API, non-root paths
     return new Response('API Route Not Found.', { status: 404 });
   },
   
+  // -------------------------------------------------------------
+  // SCHEDULED HANDLER (The Cron Fix)
+  // -------------------------------------------------------------
   async scheduled(event, env, ctx) {
     console.log("Cron worker has been triggered.");
+    // CRITICAL FIX: Ensure all three parameters are passed
     ctx.waitUntil(handleScheduledTrigger(event, env, ctx)); 
   }
 };
+
 // =================================================================
 // API ROUTERS (No Change)
 // =================================================================
