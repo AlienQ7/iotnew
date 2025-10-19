@@ -1,19 +1,18 @@
-// index.js - FINAL AND CORRECTED CODE (Addressing all build/frontend issues)
-//bullshit cloudflare turtose 
+// index.js - FINAL AND CLEAN VERSION
+
 // =================================================================
 // IMPORTS
+// =================================================================
+
 import { handleSignUp, handleLogin } from './auth';
 import { verifyJWT } from './session'; 
-// A. IMPORT HTML: The builder turns this file content into a string
 import AUTH_HTML from './auth.html'; 
 
-// B. IMPORT STYLES: This works *only* because 'export const STYLE_STRING' was added to authStyles.js
+// B. IMPORT STYLES (Relies on 'export const STYLE_STRING' being in authStyles.js)
 import { STYLE_STRING } from './authStyles'; 
-import { COLORS } from './constants'; // Keep, in case constants are used elsewhere in the worker
 
-// C. IMPORT CLIENT JS: Use the '?raw' import trick to force the builder to provide the raw text string.
-import * as AUTH_CLIENT_JS_CONTENT from './authClient.js'; // <--- CRITICAL FIX: Added ?raw
-
+// C. IMPORT CLIENT JS: Use the simple raw import. The content is now server-safe.
+import AUTH_CLIENT_JS_CONTENT from './authClient.js?raw'; // <--- SUCCESSFUL FIX
 
 // Assuming all schedule functions (including trigger) are in schedule.js
 import { handleSetSchedule, handleScheduledTrigger, handleScheduleList, handleScheduleDelete, handleScheduleToggle } from './schedule'; 
@@ -63,8 +62,7 @@ export default {
     // -------------------------------------------------------------
     if (path === '/' || path === '/auth.html') {
         
-        // 1. Clean the HTML: Remove the problematic self-referencing <script> tag.
-        // We look for the exact tag from auth.html: <script type="module" src="./authClient.js"></script>
+        // 1. Clean the HTML: Remove the script tag.
         let injectedHtml = AUTH_HTML.replace('<script type="module" src="./authClient.js"></script>', '');
         
         // 2. Inject Styles into the HTML head
@@ -72,48 +70,16 @@ export default {
         injectedHtml = injectedHtml.replace('</head>', `${styleTag}</head>`);
         
         // 3. Inject Client Script directly into the HTML body using the raw content.
-        // NOTE: authClient.js still has import statements (e.g., import { injectStyles }...). 
-        // When injected as raw text, those imports will fail in the browser.
-        // We must strip them out, as the dependencies (styles, constants) are now already defined or handled by the worker.
-        
-        // This is a necessary hack: Remove module imports from the raw client script.
-        const scriptCodeToInject = AUTH_CLIENT_JS_CONTENT
-          .replace(/import {[^}]+} from '.\/authStyles.js';/g, '')
-          .replace(/import {[^}]+} from '.\/constants.js';/g, '');
-          
-        
-        const finalScriptTag = `
-        <script type="text/javascript">
-            // Now that the imports are stripped, we must manually call the injectStyles function 
-            // that is defined globally in the script because the client code's import was removed.
-            
-            // NOTE: The 'injectStyles' function definition is now included in the final Worker JS bundle 
-            // and should be accessible globally or defined within the script block for safe execution. 
-            // Since it was defined inside authStyles.js, we assume the ESBuild bundle made it available 
-            // or we must include it here.
-            
-            // To be safe, we prepend the manual call to injectStyles and then the client logic.
-            
-            // 1. Manually run the style injection function which is defined in the raw injected code
-            // injectStyles(); // This function is now defined inside the raw injected code.
-            
-            ${scriptCodeToInject}
-            
-            // The logic runs immediately on load, as defined in authClient.js
-            // injectStyles() is called at the top of the original authClient.js, so it will run here too.
-        </script>
-        `;
+        // The script is now server-safe due to changes in authClient.js.
+        const finalScriptTag = `<script type="text/javascript">${AUTH_CLIENT_JS_CONTENT}</script>`;
 
-        // The raw client script is placed right before the closing </body> tag.
         injectedHtml = injectedHtml.replace('</body>', `${finalScriptTag}</body>`);
         
-        // Send the fully built HTML page
         return new Response(injectedHtml, {
             status: 200,
             headers: { 'Content-Type': 'text/html' }
         });
     }
-    // -------------------------------------------------------------
 
     // API ROUTING
     if (path.startsWith('/api/user/')) {
@@ -127,7 +93,7 @@ export default {
   },
   
   // -------------------------------------------------------------
-  // SCHEDULED HANDLER (No Change, as it was fixed earlier)
+  // SCHEDULED HANDLER (No Change)
   // -------------------------------------------------------------
   async scheduled(event, env, ctx) {
     console.log("Cron worker has been triggered.");
