@@ -10,5 +10,12 @@ database_name = "newiot"
 database_id = "8bf6050b-5d7a-49fd-8074-18ade07b9eb1"
 # === CRON TRIGGER ADDITION (The essential safety step) ===
 # This tells Cloudflare to run the worker every minute.
-[triggers]#[[triggers.crons]]
-cron = "* * * * *"
+#[triggers]#[[triggers.crons]]
+#cron = "* * * * *"
+# wrangler.toml
+# ... other config ...
+
+# === FIX: Use the simple [triggers] format ===
+[triggers]
+# The crons key must hold an array of strings
+crons = ["* * * * *"]
