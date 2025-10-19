@@ -1,8 +1,9 @@
 import { handleSignUp, handleLogin } from './auth';
-import { verifyJWT } from './session'; // <-- NEW: Import verifyJWT for middleware
+import { verifyJWT } from './session'; // Imports the verification logic
+import { handleSetSchedule } from './schedule'; // Imports the new schedule handler and limits
 
 // =================================================================
-// JWT Authorization Middleware (New Feature)
+// JWT Authorization Middleware
 // =================================================================
 
 /**
@@ -35,8 +36,7 @@ async function authorizeRequest(request, env) {
     // 2. Verify and decode JWT
     const decodedPayload = await verifyJWT(token, env.JWT_SECRET);
     
-    // Note: Since you are currently only returning 'email' from verifyJWT, 
-    // the decodedPayload will be { email: '...' }
+    // Check for expiration or invalid token
     if (!decodedPayload || !decodedPayload.email) {
         return { response: new Response('Invalid or Expired Token. Please log in again.', { status: 401 }) };
     }
@@ -107,16 +107,15 @@ async function handleProtectedApi(path, method, request, env) {
     switch (path) {
         case '/api/device/add':
             if (method === 'POST') {
-                // We'll write this handler in a new file (e.g., device.js)
+                // Placeholder for device registration logic (Next step after schedules)
                 return new Response('Device Add endpoint (WIP)', { status: 200 }); 
             }
             break;
         
         case '/api/schedule/set':
             if (method === 'POST') {
-                // This will enforce the Free Tier limit of 5 schedules
-                // We'll write this handler in a new file (e.g., schedule.js)
-                return new Response('Schedule Set endpoint (WIP)', { status: 200 });
+                // Calls the handler that enforces the MAX_SCHEDULES limit
+                return handleSetSchedule(request, env, userEmail);
             }
             break;
 
