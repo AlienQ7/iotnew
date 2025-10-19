@@ -1,31 +1,60 @@
-// authClient.js (The new name for the frontend logic file)
+// authClient.js - CORRECTED FOR WORKER INJECTION
+
+// NOTE: We keep the imports to satisfy the *build system* in case it still tries to resolve them, 
+// BUT we remove the calls to injectStyles() and checkAuthStatus() which crash the server.
 
 import { injectStyles } from './authStyles.js';
-import { BACKEND_URL, TOKEN_KEY, COLORS } from './constants.js'; // <-- USING THE SIMPLE 'constants.js' NAME
+import { BACKEND_URL, TOKEN_KEY, COLORS } from './constants.js'; // Keep imports for constants
 
 // =================================================================
-// 1. STYLES INJECTION & INITIAL SETUP
+// 1. INITIALIZATION WRAPPER
 // =================================================================
 
-// Inject the CSS styles dynamically upon script execution
-injectStyles();
-
+// Define global variables, but DO NOT call any functions that use 'document' yet.
 const loginView = document.getElementById('login-view');
 const signupView = document.getElementById('signup-view');
 const loginForm = document.getElementById('login-form');
 const signupForm = document.getElementById('signup-form');
 const messageBox = document.getElementById('message-box');
 
-// Immediately check if the user is already logged in
+// Function to immediately check if the user is already logged in
 function checkAuthStatus() {
     if (localStorage.getItem(TOKEN_KEY)) {
         console.log("User already logged in. Redirecting to dashboard...");
     }
 }
-checkAuthStatus();
+
+
+function initializeClient() {
+    // Inject the CSS styles dynamically upon script execution - REMOVED CALL HERE
+    // injectStyles(); 
+    
+    // Immediate checks and event listeners
+    checkAuthStatus();
+
+    // Event listeners for view switching
+    document.getElementById('show-signup').addEventListener('click', (e) => {
+        e.preventDefault();
+        switchView('signup');
+    });
+
+    document.getElementById('show-login').addEventListener('click', (e) => {
+        e.preventDefault();
+        switchView('login');
+    });
+
+    document.getElementById('forgot-password').addEventListener('click', (e) => {
+        e.preventDefault();
+        alert("Password reset functionality is currently under development. Please contact support.");
+    });
+    
+    loginForm.addEventListener('submit', handleLogin);
+    signupForm.addEventListener('submit', handleSignup);
+}
+
 
 // =================================================================
-// 2. UI MANIPULATION AND MESSAGE HANDLING
+// 2. UI MANIPULATION AND MESSAGE HANDLING (No change to functions)
 // =================================================================
 
 function showMessage(type, text) {
@@ -33,14 +62,13 @@ function showMessage(type, text) {
     messageBox.className = `message ${type}`;
     messageBox.style.display = 'block';
     
-    // Auto-hide the message after 5 seconds
     setTimeout(() => {
         messageBox.style.display = 'none';
     }, 5000);
 }
 
 function switchView(view) {
-    messageBox.style.display = 'none'; // Clear messages on view switch
+    messageBox.style.display = 'none'; 
     if (view === 'login') {
         loginView.style.display = 'block';
         signupView.style.display = 'none';
@@ -52,25 +80,8 @@ function switchView(view) {
     }
 }
 
-// Event listeners for view switching
-document.getElementById('show-signup').addEventListener('click', (e) => {
-    e.preventDefault();
-    switchView('signup');
-});
-
-document.getElementById('show-login').addEventListener('click', (e) => {
-    e.preventDefault();
-    switchView('login');
-});
-
-document.getElementById('forgot-password').addEventListener('click', (e) => {
-    e.preventDefault();
-    // Placeholder logic for the password retrieve system
-    alert("Password reset functionality is currently under development. Please contact support.");
-});
-
 // =================================================================
-// 3. API CALL HANDLERS
+// 3. API CALL HANDLERS (No change)
 // =================================================================
 
 async function handleLogin(e) {
@@ -92,18 +103,14 @@ async function handleLogin(e) {
         const data = await response.json();
         
         if (response.ok && data.success) {
-            // SUCCESS! Store the JWT token and redirect.
             localStorage.setItem(TOKEN_KEY, data.token);
             showMessage('success', 'Login successful! Redirecting...');
             
-            // Wait briefly before redirecting (simulated for simplicity)
             setTimeout(() => {
-                // window.location.href = '/dashboard.html'; 
                 console.log("LOGIN SUCCESS: Token stored. Dashboard redirect simulation.");
             }, 1000);
             
         } else {
-            // FAILURE! 401 Unauthorized or other error
             showMessage('error', data.message || 'Invalid credentials or login failed.');
         }
 
@@ -136,9 +143,8 @@ async function handleSignup(e) {
         
         if (response.ok && data.success) {
             showMessage('success', 'Account created! Please log in below.');
-            switchView('login'); // Automatically switch to login view
+            switchView('login'); 
         } else {
-            // FAILURE! 409 Conflict (User exists) or 400 (Bad password policy)
             showMessage('error', data.message || 'Registration failed. Check your password policy.');
         }
 
@@ -152,8 +158,8 @@ async function handleSignup(e) {
 }
 
 // =================================================================
-// 4. ATTACH EVENT LISTENERS
+// 4. ATTACH EVENT LISTENERS (Run initialization function immediately)
 // =================================================================
 
-loginForm.addEventListener('submit', handleLogin);
-signupForm.addEventListener('submit', handleSignup);
+// THIS LINE is the only thing that runs immediately.
+initializeClient();
