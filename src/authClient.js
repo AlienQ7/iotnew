@@ -1,5 +1,5 @@
 // authClient.js - CORRECTED FOR WORKER INJECTION
-
+//update bullshit cloudflare !!!
 // NOTE: We keep the imports to satisfy the *build system* in case it still tries to resolve them, 
 // BUT we remove the calls to injectStyles() and checkAuthStatus() which crash the server.
 
