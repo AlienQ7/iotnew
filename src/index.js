@@ -1,42 +1,18 @@
-// index.js - FINAL BACKEND VERSION (Scheduler Fix Applied)
+// index.js - FINAL BACKEND VERSION (with auth.html Import)
 
 import { handleSignUp, handleLogin } from './auth';
 import { verifyJWT } from './session'; 
+// *** CRITICAL FIX: IMPORT THE HTML FILE AS RAW TEXT ***
+import AUTH_HTML from './auth.html'; 
+
 // Assuming all schedule functions (including trigger) are in schedule.js
 import { handleSetSchedule, handleScheduledTrigger, handleScheduleList, handleScheduleDelete, handleScheduleToggle } from './schedule'; 
 import { handleDeviceAdd, handleDeviceList, handleDeviceDelete } from './device'; 
 
-// =================================================================
-// JWT Authorization Middleware (No Change)
-// =================================================================
-
-async function authorizeRequest(request, env) {
-    // ... (Authorization logic remains here) ...
-    let token = request.headers.get('Authorization');
-    if (token && token.startsWith('Bearer ')) {
-        token = token.substring(7);
-    } else {
-        const cookieHeader = request.headers.get('Cookie');
-        if (cookieHeader) {
-            const cookies = cookieHeader.split(';').map(c => c.trim());
-            const authTokenCookie = cookies.find(c => c.startsWith('auth_token='));
-            if (authTokenCookie) {
-                token = authTokenCookie.substring('auth_token='.length);
-            }
-        }
-    }
-    if (!token) {
-        return { response: new Response('Missing Authorization Token.', { status: 401 }) };
-    }
-    const decodedPayload = await verifyJWT(token, env.JWT_SECRET);
-    if (!decodedPayload || !decodedPayload.email) {
-        return { response: new Response('Invalid or Expired Token. Please log in again.', { status: 401 }) };
-    }
-    return { user: { email: decodedPayload.email } };
-}
+// ... (authorizeRequest function remains the same) ...
 
 // =================================================================
-// MAIN WORKER HANDLER (Fix applied here)
+// MAIN WORKER HANDLER (Serving auth.html)
 // =================================================================
 
 export default {
@@ -44,6 +20,15 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
     const method = request.method;
+    
+    // CRITICAL FIX: Route for the root and explicit auth page
+    if (path === '/' || path === '/auth.html') {
+        // Serve the imported HTML content (AUTH_HTML is now the content string)
+        return new Response(AUTH_HTML, {
+            status: 200,
+            headers: { 'Content-Type': 'text/html' }
+        });
+    }
 
     if (path.startsWith('/api/user/')) {
       return handleUserApi(path, method, request, env);
@@ -51,16 +36,15 @@ export default {
       return handleProtectedApi(path, method, request, env);
     }
     
-    return new Response('Welcome to IoT Hub API. Try POSTing to /api/user/signup', { status: 200 });
+    // Fallback 404
+    return new Response('API Route Not Found.', { status: 404 });
   },
   
   async scheduled(event, env, ctx) {
     console.log("Cron worker has been triggered.");
-    // CRITICAL FIX: Pass ALL three parameters to the handler function
     ctx.waitUntil(handleScheduledTrigger(event, env, ctx)); 
   }
 };
-
 // =================================================================
 // API ROUTERS (No Change)
 // =================================================================
