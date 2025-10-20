@@ -1,17 +1,14 @@
-name = 'iotlol'
+name = 'iotnew'
 main = "src/index.js"
 compatibility_date = "2024-05-18"
 
 [[d1_databases]]
-binding = "dataiot"
-database_name = "newiot"
-database_id = "8bf6050b-5d7a-49fd-8074-18ade07b9eb1"
+binding = "newbind"
+database_name = "newiotbase"
+database_id = "72e3d762-eca0-43d1-a1d9-fcf747e1cce9"
 [[triggers]]
 type = "cron"
 crons = ["* * * * *"]
 
-[site]
-bucket = "public"
-bindings = { ASSETS = "ASSETS" }
 
 
