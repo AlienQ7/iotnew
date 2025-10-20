@@ -1,4 +1,4 @@
-// V 0.0.01
+// V 0.0.02
 // authClient.js - FINAL AND INDISPUTABLE SERVER-SAFE WRAPPER
 const BACKEND_URL = "";
 const TOKEN_KEY = "auth_token";
@@ -7,13 +7,21 @@ const TOKEN_KEY = "auth_token";
 (function() {
     
     // =================================================================
-    // 1. DYNAMIC ELEMENT ACCESS (The Fix for 'document is not defined')
+    // 1. DYNAMIC ELEMENT ACCESS (The Definitive Server Gate Fix)
     // =================================================================
     let elements = null;
 
-    // This function ensures document.getElementById() is only called once
-    // when the code runs in the browser, not during the server-side deployment.
+    // This function now includes a protective check: if running on the server, it quits immediately.
     function getDOMElements() {
+        
+        // --- ADDED: THE CRITICAL SERVER GATE ---
+        if (typeof document === 'undefined') {
+            // If running on the server (where 'document' doesn't exist), return an empty object 
+            // to prevent the bundler from throwing a ReferenceError.
+            return {}; 
+        }
+        // --------------------------------------
+        
         if (!elements) {
             elements = {
                 loginView: document.getElementById('login-view'),
@@ -49,44 +57,53 @@ const TOKEN_KEY = "auth_token";
 
     function showMessage(type, text) {
         const { messageBox } = getDOMElements();
-        messageBox.textContent = text;
-        messageBox.className = `message ${type}`;
-        messageBox.style.display = 'block';
-        
-        setTimeout(() => {
-            messageBox.style.display = 'none';
-        }, 5000);
+        // Check if messageBox exists (it won't on the server)
+        if (messageBox) { 
+            messageBox.textContent = text;
+            messageBox.className = `message ${type}`;
+            messageBox.style.display = 'block';
+            
+            setTimeout(() => {
+                messageBox.style.display = 'none';
+            }, 5000);
+        }
     }
 
     function switchView(view) {
         const { messageBox, loginView, signupView, loginForm, signupForm } = getDOMElements();
-        messageBox.style.display = 'none'; 
-        if (view === 'login') {
-            loginView.style.display = 'block';
-            signupView.style.display = 'none';
-            loginForm.reset();
-        } else {
-            loginView.style.display = 'none';
-            signupView.style.display = 'block';
-            signupForm.reset();
+        // Check if elements exist
+        if (loginView) {
+            messageBox.style.display = 'none'; 
+            if (view === 'login') {
+                loginView.style.display = 'block';
+                signupView.style.display = 'none';
+                if (loginForm) loginForm.reset();
+            } else {
+                loginView.style.display = 'none';
+                signupView.style.display = 'block';
+                if (signupForm) signupForm.reset();
+            }
         }
     }
 
 
     // =================================================================
-    // 3. API CALL HANDLERS 
+    // 3. API CALL HANDLERS (No Change)
     // =================================================================
 
     async function handleLogin(e) {
         e.preventDefault();
         const { loginForm, loginEmail, loginPassword } = getDOMElements();
         
-        const email = loginEmail.value;
-        const password = loginPassword.value;
+        // Safely access values only if elements exist
+        const email = loginEmail ? loginEmail.value : '';
+        const password = loginPassword ? loginPassword.value : '';
         
         const button = loginForm.querySelector('.auth-button');
-        button.textContent = 'LOGGING IN...';
-        button.disabled = true;
+        if (button) {
+            button.textContent = 'LOGGING IN...';
+            button.disabled = true;
+        }
 
         try {
             const response = await fetch(`${BACKEND_URL}/api/user/login`, {
@@ -98,7 +115,8 @@ const TOKEN_KEY = "auth_token";
             const data = await response.json();
             
             if (response.ok && data.success) {
-                localStorage.setItem(TOKEN_KEY, data.token);
+                // Ensure localStorage check is safe
+                if (typeof localStorage !== 'undefined') localStorage.setItem(TOKEN_KEY, data.token);
                 showMessage('success', 'Login successful! Redirecting...');
                 
                 setTimeout(() => {
@@ -113,8 +131,10 @@ const TOKEN_KEY = "auth_token";
             console.error('Network or server error:', error);
             showMessage('error', 'Connection error. Please try again.');
         } finally {
-            button.textContent = 'LOGIN';
-            button.disabled = false;
+            if (button) {
+                button.textContent = 'LOGIN';
+                button.disabled = false;
+            }
         }
     }
 
@@ -122,12 +142,15 @@ const TOKEN_KEY = "auth_token";
         e.preventDefault();
         const { signupForm, signupEmail, signupPassword } = getDOMElements();
         
-        const email = signupEmail.value;
-        const password = signupPassword.value;
+        // Safely access values only if elements exist
+        const email = signupEmail ? signupEmail.value : '';
+        const password = signupPassword ? signupPassword.value : '';
         
         const button = signupForm.querySelector('.auth-button');
-        button.textContent = 'REGISTERING...';
-        button.disabled = true;
+        if (button) {
+            button.textContent = 'REGISTERING...';
+            button.disabled = true;
+        }
 
         try {
             const response = await fetch(`${BACKEND_URL}/api/user/signup`, {
@@ -149,47 +172,49 @@ const TOKEN_KEY = "auth_token";
             console.error('Network or server error:', error);
             showMessage('error', 'Connection error. Please try again.');
         } finally {
-            button.textContent = 'SIGN UP';
-            button.disabled = false;
+            if (button) {
+                button.textContent = 'SIGN UP';
+                button.disabled = false;
+            }
         }
     }
 
     // =================================================================
     // 4. ATTACH EVENT LISTENERS (Initial Run)
     // =================================================================
-
-    // This block is the first logic that runs in the browser AFTER
-    // the code has been successfully bundled and executed on the client.
     
     // Initial check
     checkAuthStatus();
     
     // Wait for the DOM elements to be ready before attaching listeners
-    document.addEventListener('DOMContentLoaded', () => {
-        const { showSignup, showLogin, forgotPassword, loginForm, signupForm } = getDOMElements();
-        
-        // Event listeners for view switching
-        showSignup.addEventListener('click', (e) => {
-            e.preventDefault();
-            switchView('signup');
-        });
+    // We only attach listeners if 'document' exists (i.e., we are in the browser).
+    if (typeof document !== 'undefined') {
+        document.addEventListener('DOMContentLoaded', () => {
+            const { showSignup, showLogin, forgotPassword, loginForm, signupForm } = getDOMElements();
+            
+            // Event listeners for view switching
+            if (showSignup) showSignup.addEventListener('click', (e) => {
+                e.preventDefault();
+                switchView('signup');
+            });
 
-        showLogin.addEventListener('click', (e) => {
-            e.preventDefault();
+            if (showLogin) showLogin.addEventListener('click', (e) => {
+                e.preventDefault();
+                switchView('login');
+            });
+
+            if (forgotPassword) forgotPassword.addEventListener('click', (e) => {
+                e.preventDefault();
+                showMessage('info', "Password reset functionality is currently under development.");
+            });
+            
+            // Form submission listeners
+            if (loginForm) loginForm.addEventListener('submit', handleLogin);
+            if (signupForm) signupForm.addEventListener('submit', handleSignup);
+            
+            // Ensure the initial view is set
             switchView('login');
         });
-
-        forgotPassword.addEventListener('click', (e) => {
-            e.preventDefault();
-            showMessage('info', "Password reset functionality is currently under development.");
-        });
-        
-        // Form submission listeners
-        loginForm.addEventListener('submit', handleLogin);
-        signupForm.addEventListener('submit', handleSignup);
-        
-        // Ensure the initial view is set
-        switchView('login');
-    });
+    }
 
 })();
