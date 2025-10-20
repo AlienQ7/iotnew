@@ -10,12 +10,11 @@ import { verifyJWT } from './session';
 import { handleSetSchedule, handleScheduledTrigger, handleScheduleList, handleScheduleDelete, handleScheduleToggle } from './schedule'; 
 import { handleDeviceAdd, handleDeviceList, handleDeviceDelete } from './device'; 
 
-
+// oiiii cloudflare detect the changes!!!!!!! fast
 // =================================================================
 // FINAL: ASSET READING UTILITY (Absolute Fix)
 // =================================================================
-// hereeeeee
-// hereeeeeeeeeeeeeeee
+
 async function getAssetContent(env, filename) {
     let ASSET_BINDING;
     let accessMethod;
