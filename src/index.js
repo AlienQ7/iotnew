@@ -1,14 +1,11 @@
 // src/index.js - ASSET BINDING VERSION (Stable Fix)
-
+// changes cloudflare !!!!!
 // =================================================================
 // IMPORTS (Only keep API/Worker imports)
 // =================================================================
 
 import { handleSignUp, handleLogin } from './auth';
 import { verifyJWT } from './session'; 
-// DELETED: import AUTH_HTML from './auth.html'; 
-// DELETED: import { STYLE_STRING } from './authStyles'; 
-// DELETED: import AUTH_CLIENT_JS_CONTENT from './authClient.js?raw'; 
 
 // Existing API/Schedule imports remain:
 import { handleSetSchedule, handleScheduledTrigger, handleScheduleList, handleScheduleDelete, handleScheduleToggle } from './schedule'; 
