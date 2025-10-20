@@ -1,5 +1,5 @@
-// src/index.js V0.0.01- FINAL AND GUARANTEED UI SOLUTION (Failsafe Injection)
-
+// src/index.js - FINAL AND GUARANTEED UI SOLUTION (Failsafe Injection)
+// V 0.0.02
 // NOTE: This code uses direct file imports, meaning auth.html, authStyles.js, 
 // and authClient.js MUST be located in the 'src/' directory.
 
@@ -22,27 +22,40 @@ import AUTH_CLIENT_JS_CONTENT from './authClient.js';
 
 /**
  * Strips comments and wraps the content in a safe, immediately-executing script tag.
- * This is designed to bypass potential injection errors.
+ * CRITICAL FIX: Ensures jsContent is a string, even if imported as a module object.
  */
 function createFailsafeScriptTag(jsContent) {
-    // 1. Strip block comments (/* ... */) and line comments (// ...)
-    let cleanContent = jsContent
-        .replace(/\/\*[\s\S]*?\*\/|([^\\:]|^)\/\/.*$/gm, '$1')
-        .trim();
-
-    // 2. Wrap content in a simple, non-module script tag
-    // We add a console log here to confirm the script EXECUTES.
-    return `
-        <script>
-        console.log("Client Script V0.0.08 starting execution.");
-        try {
-            // The IIFE structure from authClient.js is expected here: (function() { ... })()
-            ${cleanContent}
-        } catch(e) {
-            console.error("Critical Execution Error in Injected Script:", e);
-        }
-        </script>
-    `;
+    let cleanContent = jsContent;
+    
+    // Check if the import returned an object (e.g., { default: "..." })
+    if (typeof cleanContent === 'object' && cleanContent !== null && typeof cleanContent.default === 'string') {
+        cleanContent = cleanContent.default;
+    } else if (typeof cleanContent !== 'string') {
+        // Fail loudly if it's not a recognizable format
+        throw new Error("Could not extract client script content string for injection.");
+    }
+    
+    try {
+        // 1. Strip block comments (/* ... */) and line comments (// ...)
+        cleanContent = cleanContent
+            .replace(/\/\*[\s\S]*?\*\/|([^\\:]|^)\/\/.*$/gm, '$1')
+            .trim();
+            
+        // 2. Wrap content in a simple, non-module script tag
+        return `
+            <script>
+            console.log("Client Script V0.0.08 starting execution.");
+            try {
+                // The IIFE structure from authClient.js is expected here: (function() { ... })()
+                ${cleanContent}
+            } catch(e) {
+                console.error("Critical Execution Error in Injected Script:", e);
+            }
+            </script>
+        `;
+    } catch (e) {
+        throw new Error(`Failed during script sanitation: ${e.message}`);
+    }
 }
 
 // =================================================================
