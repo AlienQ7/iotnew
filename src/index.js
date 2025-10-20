@@ -1,65 +1,26 @@
-// src/index.js - ASSET BINDING VERSION (Stable Fix)
+// src/index.js - FINAL AND GUARANTEED UI SOLUTION (String Injection)
+
+// NOTE: This code uses direct file imports, meaning auth.html, authStyles.js, 
+// and authClient.js MUST be located in the 'src/' directory.
+// It bypasses the unstable Cloudflare [site] asset binding system.
+
 // =================================================================
-// IMPORTS (Only keep API/Worker imports)
+// IMPORTS
 // =================================================================
 
 import { handleSignUp, handleLogin } from './auth';
 import { verifyJWT } from './session'; 
 
-// Existing API/Schedule imports remain:
+// A. CRITICAL: Direct imports for the frontend content
+// These imports read the entire file content as a string at build time.
+// This requires the frontend files to be moved back into the 'src/' folder.
+import AUTH_HTML from './auth.html'; 
+import { STYLE_STRING } from './authStyles'; 
+import AUTH_CLIENT_JS_CONTENT from './authClient.js'; 
+
+// B. Existing API/Schedule imports remain:
 import { handleSetSchedule, handleScheduledTrigger, handleScheduleList, handleScheduleDelete, handleScheduleToggle } from './schedule'; 
 import { handleDeviceAdd, handleDeviceList, handleDeviceDelete } from './device'; 
-
-// =================================================================
-// FINAL: ASSET READING UTILITY (Handles path prefixing and methods)
-// =================================================================
-// 1
-async function getAssetContent(env, filename) {
-    let ASSET_BINDING;
-    let accessMethod;
-    const pathsToTry = [filename, `public/${filename}`]; // Try both filename and 'public/filename'
-
-    // 1. Determine the correct binding object and method
-    if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
-        ASSET_BINDING = env.ASSETS;
-        accessMethod = 'fetch';
-    } else if (env.__STATIC_CONTENT) {
-        ASSET_BINDING = env.__STATIC_CONTENT;
-        accessMethod = 'get';
-    } else {
-        throw new Error("Asset binding (env.ASSETS or env.__STATIC_CONTENT) is missing.");
-    }
-
-    // 2. Iterate through paths to find the asset
-    for (const key of pathsToTry) {
-        let response = null;
-
-        try {
-            if (accessMethod === 'fetch') {
-                // Modern method expects path with leading slash
-                response = await ASSET_BINDING.fetch(`/${key}`);
-                if (response.ok) {
-                    return response.text();
-                }
-            } else {
-                // Legacy method EXPECTS key WITHOUT leading slash
-                const finalKey = key.startsWith('/') ? key.substring(1) : key;
-                response = await ASSET_BINDING.get(finalKey);
-                
-                // .get() returns null if not found, or the content string if found.
-                if (response !== null) {
-                    return response; // Success, return the text content
-                }
-            }
-        } catch (e) {
-            // Ignore temporary fetch/get errors and continue trying the next path
-            console.warn(`Attempt failed for key: ${key}. Error: ${e.message}`);
-        }
-    }
-
-    // 3. If the loop completes without finding the asset, fail.
-    throw new Error(`Asset get failed: ${filename} (Not found on standard or prefixed path).`);
-}
 
 
 // =================================================================
@@ -82,7 +43,8 @@ async function authorizeRequest(request, env) {
     if (!token) {
         return { response: new Response('Missing Authorization Token.', { status: 401 }) };
     }
-    const decodedPayload = await verifyJWT(token, env.JWT_SECRET);
+    // Assuming JWT_SECRET is available in env
+    const decodedPayload = await verifyJWT(token, env.JWT_SECRET); 
     if (!decodedPayload || !decodedPayload.email) {
         return { response: new Response('Invalid or Expired Token. Please log in again.', { status: 401 }) };
     }
@@ -105,21 +67,14 @@ export default {
     if (path === '/' || path === '/auth.html') {
         
         try {
-            // 1. Read all file contents from the Asset Store
-            const AUTH_HTML = await getAssetContent(env, 'auth.html');
-            const AUTH_STYLES_JS_CONTENT = await getAssetContent(env, 'authStyles.js');
-            const AUTH_CLIENT_JS_CONTENT = await getAssetContent(env, 'authClient.js');
-
-            // 2. Extract STYLE_STRING from authStyles.js content
-            // We use a regex to safely extract the string content.
-            const styleMatch = AUTH_STYLES_JS_CONTENT.match(/export const STYLE_STRING = `([^`]+)`/);
-            const STYLE_STRING = styleMatch ? styleMatch[1] : '';
-
-            // 3. Inject Styles into the HTML head
-            const styleTag = `<style>${STYLE_STRING}</style>`;
-            let injectedHtml = AUTH_HTML.replace('</head>', `${styleTag}</head>`);
+            // 1. Start with the raw HTML string
+            let injectedHtml = AUTH_HTML;
             
-            // 4. Remove the old script link and inject the raw script content
+            // 2. Inject Styles (STYLE_STRING is imported from authStyles.js)
+            const styleTag = `<style>${STYLE_STRING}</style>`;
+            injectedHtml = injectedHtml.replace('</head>', `${styleTag}</head>`);
+            
+            // 3. Remove the external script link and inject the raw script content
             // This replacement is CRITICAL to avoid the browser trying to fetch the file twice.
             injectedHtml = injectedHtml.replace('<script type="module" src="./authClient.js"></script>', '');
             
@@ -132,9 +87,8 @@ export default {
             });
             
         } catch (error) {
-            console.error("Asset serving error:", error);
-            // If assets fail, return a plain error.
-            return new Response(`Error serving UI (Assets missing or internal error): ${error.message}`, { status: 500 });
+            // If the imports themselves fail (highly unlikely now), this is the fallback.
+            return new Response(`UI Injection Error: ${error.message}`, { status: 500 });
         }
     }
 
@@ -145,11 +99,13 @@ export default {
       return handleProtectedApi(path, method, request, env);
     }
     
-    // Fallback 404
+    // Fallback 404 for non-API, non-root paths
     return new Response('API Route Not Found.', { status: 404 });
   },
   
+  // -------------------------------------------------------------
   // SCHEDULED HANDLER (No Change)
+  // -------------------------------------------------------------
   async scheduled(event, env, ctx) {
     console.log("Cron worker has been triggered.");
     ctx.waitUntil(handleScheduledTrigger(event, env, ctx)); 
@@ -158,7 +114,6 @@ export default {
 
 // =================================================================
 // API ROUTERS (No Change)
-// ... (The handleUserApi and handleProtectedApi functions go here)
 // =================================================================
 async function handleUserApi(path, method, request, env) {
   switch (path) {
