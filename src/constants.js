@@ -1,6 +1,6 @@
 // constants.js
 
-export const BACKEND_URL = "https://iotlol.dev0pscommand.workers.dev";
+export const BACKEND_URL = "https://iotnew.dev0pscommand.workers.dev";
 export const TOKEN_KEY = "iot_auth_token"; // Key for localStorage
 
 // --- Color Constants based on your provided theme ---
