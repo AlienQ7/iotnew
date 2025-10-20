@@ -10,7 +10,9 @@ database_id = "8bf6050b-5d7a-49fd-8074-18ade07b9eb1"
 [[triggers]]
 type = "cron"
 crons = ["* * * * *"]
-# CRITICAL FIX: ASSET BINDING
+# ASSET BINDING
 [site]
 bucket = "public"
+bindings = { ASSETS = "ASSETS" }
+
 
