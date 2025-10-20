@@ -1,4 +1,4 @@
-// authStyles.js - CORRECTED
+// authStyles.js V0.0.01 - register fix attempt
 
 import { COLORS } from './constants.js';
 
@@ -47,6 +47,11 @@ h2 {
     margin-bottom: 25px;
     font-size: 1.8em;
     text-transform: uppercase;
+}
+
+/* --- CRITICAL FIX: Ensure signup view is hidden by default --- */
+#signup-view {
+    display: none !important; 
 }
 
 /* --- 4. FORM ELEMENTS --- */
