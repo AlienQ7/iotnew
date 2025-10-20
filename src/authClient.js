@@ -1,26 +1,43 @@
+// V 0.0.01
 // authClient.js - FINAL AND INDISPUTABLE SERVER-SAFE WRAPPER
 const BACKEND_URL = "";
 const TOKEN_KEY = "auth_token";
 
 // CRITICAL: ALL code is wrapped in an immediately-invoked function expression (IIFE).
-// This prevents any code, even function definitions, from executing until the browser loads it.
 (function() {
-
+    
     // =================================================================
-    // 1. VARIABLE DECLARATION AND INITIAL SETUP
+    // 1. DYNAMIC ELEMENT ACCESS (The Fix for 'document is not defined')
     // =================================================================
+    let elements = null;
 
-    // ALL document.getElementById calls are now safe inside the browser scope.
-    const loginView = document.getElementById('login-view');
-    const signupView = document.getElementById('signup-view');
-    const loginForm = document.getElementById('login-form');
-    const signupForm = document.getElementById('signup-form');
-    const messageBox = document.getElementById('message-box');
+    // This function ensures document.getElementById() is only called once
+    // when the code runs in the browser, not during the server-side deployment.
+    function getDOMElements() {
+        if (!elements) {
+            elements = {
+                loginView: document.getElementById('login-view'),
+                signupView: document.getElementById('signup-view'),
+                loginForm: document.getElementById('login-form'),
+                signupForm: document.getElementById('signup-form'),
+                messageBox: document.getElementById('message-box'),
+                loginEmail: document.getElementById('login-email'),
+                loginPassword: document.getElementById('login-password'),
+                signupEmail: document.getElementById('signup-email'),
+                signupPassword: document.getElementById('signup-password'),
+                showSignup: document.getElementById('show-signup'),
+                showLogin: document.getElementById('show-login'),
+                forgotPassword: document.getElementById('forgot-password'),
+            };
+        }
+        return elements;
+    }
 
 
     // Function to immediately check if the user is already logged in
     function checkAuthStatus() {
-        if (localStorage.getItem(TOKEN_KEY)) {
+        // Safe check: does localStorage exist? (It does in the browser)
+        if (typeof localStorage !== 'undefined' && localStorage.getItem(TOKEN_KEY)) {
             console.log("User already logged in. Redirecting to dashboard...");
         }
     }
@@ -31,6 +48,7 @@ const TOKEN_KEY = "auth_token";
     // =================================================================
 
     function showMessage(type, text) {
+        const { messageBox } = getDOMElements();
         messageBox.textContent = text;
         messageBox.className = `message ${type}`;
         messageBox.style.display = 'block';
@@ -41,6 +59,7 @@ const TOKEN_KEY = "auth_token";
     }
 
     function switchView(view) {
+        const { messageBox, loginView, signupView, loginForm, signupForm } = getDOMElements();
         messageBox.style.display = 'none'; 
         if (view === 'login') {
             loginView.style.display = 'block';
@@ -60,8 +79,10 @@ const TOKEN_KEY = "auth_token";
 
     async function handleLogin(e) {
         e.preventDefault();
-        const email = document.getElementById('login-email').value;
-        const password = document.getElementById('login-password').value;
+        const { loginForm, loginEmail, loginPassword } = getDOMElements();
+        
+        const email = loginEmail.value;
+        const password = loginPassword.value;
         
         const button = loginForm.querySelector('.auth-button');
         button.textContent = 'LOGGING IN...';
@@ -77,12 +98,10 @@ const TOKEN_KEY = "auth_token";
             const data = await response.json();
             
             if (response.ok && data.success) {
-                // IMPORTANT: Use localStorage here instead of sessionStorage since we are using a shared environment
-                localStorage.setItem(TOKEN_KEY, data.token); 
+                localStorage.setItem(TOKEN_KEY, data.token);
                 showMessage('success', 'Login successful! Redirecting...');
                 
                 setTimeout(() => {
-                    // This is where you would typically redirect to the dashboard view
                     console.log("LOGIN SUCCESS: Token stored. Dashboard redirect simulation.");
                 }, 1000);
                 
@@ -101,8 +120,10 @@ const TOKEN_KEY = "auth_token";
 
     async function handleSignup(e) {
         e.preventDefault();
-        const email = document.getElementById('signup-email').value;
-        const password = document.getElementById('signup-password').value;
+        const { signupForm, signupEmail, signupPassword } = getDOMElements();
+        
+        const email = signupEmail.value;
+        const password = signupPassword.value;
         
         const button = signupForm.querySelector('.auth-button');
         button.textContent = 'REGISTERING...';
@@ -137,29 +158,38 @@ const TOKEN_KEY = "auth_token";
     // 4. ATTACH EVENT LISTENERS (Initial Run)
     // =================================================================
 
+    // This block is the first logic that runs in the browser AFTER
+    // the code has been successfully bundled and executed on the client.
+    
     // Initial check
     checkAuthStatus();
     
-    // Event listeners for view switching
-    document.getElementById('show-signup').addEventListener('click', (e) => {
-        e.preventDefault();
-        switchView('signup');
-    });
+    // Wait for the DOM elements to be ready before attaching listeners
+    document.addEventListener('DOMContentLoaded', () => {
+        const { showSignup, showLogin, forgotPassword, loginForm, signupForm } = getDOMElements();
+        
+        // Event listeners for view switching
+        showSignup.addEventListener('click', (e) => {
+            e.preventDefault();
+            switchView('signup');
+        });
 
-    document.getElementById('show-login').addEventListener('click', (e) => {
-        e.preventDefault();
+        showLogin.addEventListener('click', (e) => {
+            e.preventDefault();
+            switchView('login');
+        });
+
+        forgotPassword.addEventListener('click', (e) => {
+            e.preventDefault();
+            showMessage('info', "Password reset functionality is currently under development.");
+        });
+        
+        // Form submission listeners
+        loginForm.addEventListener('submit', handleLogin);
+        signupForm.addEventListener('submit', handleSignup);
+        
+        // Ensure the initial view is set
         switchView('login');
     });
-
-    // --- FIX: Replaced alert() with showMessage() ---
-    document.getElementById('forgot-password').addEventListener('click', (e) => {
-        e.preventDefault();
-        showMessage('info', "Password reset functionality is currently under development.");
-    });
-    // ------------------------------------------------
-
-    // Form submission listeners
-    loginForm.addEventListener('submit', handleLogin);
-    signupForm.addEventListener('submit', handleSignup);
 
 })();
