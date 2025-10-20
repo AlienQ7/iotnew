@@ -6,7 +6,7 @@ const TOKEN_KEY = "auth_token";
 // CRITICAL: ALL code is wrapped in an immediately-invoked function expression (IIFE).
 (function() {
     
-    // =================================================================
+
     // 1. ELEMENT RETRIEVAL UTILITY (Simplified for direct use)
     // =================================================================
 
