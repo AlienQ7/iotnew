@@ -1,4 +1,4 @@
-// V 0.0.03 register fix attempt
+// V 0.0.04 - FINAL CONTROL FIX
 // authClient.js - FINAL AND INDISPUTABLE SERVER-SAFE WRAPPER
 const BACKEND_URL = "";
 const TOKEN_KEY = "auth_token";
@@ -176,16 +176,9 @@ const TOKEN_KEY = "auth_token";
     // 4. ATTACH EVENT LISTENERS (Initial Run)
     // =================================================================
     
-    // Initial check
+    // Initial check (Can run immediately)
     checkAuthStatus();
     
-    // --- FIX: Initial view setting moved here to ensure it runs immediately in the browser. ---
-    // We must ensure the view is initialized as 'login' even before DOMContentLoaded.
-    if (typeof document !== 'undefined') {
-        switchView('login');
-    }
-    // ------------------------------------------------------------------------------------------
-
     // Wait for the DOM elements to be ready before attaching listeners
     if (typeof document !== 'undefined') {
         document.addEventListener('DOMContentLoaded', () => {
@@ -210,6 +203,9 @@ const TOKEN_KEY = "auth_token";
             // Form submission listeners
             if (loginForm) loginForm.addEventListener('submit', handleLogin);
             if (signupForm) signupForm.addEventListener('submit', handleSignup);
+            
+            // --- CRITICAL FIX: Enforce the initial view AFTER all elements and listeners are ready ---
+            switchView('login');
         });
     }
 
