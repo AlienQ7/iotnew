@@ -1,5 +1,4 @@
 // src/index.js - ASSET BINDING VERSION (Stable Fix)
-// changes cloudflare !!!!!
 // =================================================================
 // IMPORTS (Only keep API/Worker imports)
 // =================================================================
@@ -12,26 +11,49 @@ import { handleSetSchedule, handleScheduledTrigger, handleScheduleList, handleSc
 import { handleDeviceAdd, handleDeviceList, handleDeviceDelete } from './device'; 
 
 // =================================================================
-// NEW: ASSET READING UTILITY (Updated with Fallback)
+// FINAL: ASSET READING UTILITY (Handles both binding names and methods)
 // =================================================================
 
 async function getAssetContent(env, filename) {
-    // 1. Check for the standard binding (ASSETS) or the legacy binding (__STATIC_CONTENT)
-    const ASSET_BINDING = env.ASSETS || env.__STATIC_CONTENT;
+    // 1. Determine the correct binding object and method
+    let ASSET_BINDING;
+    let accessMethod;
 
-    if (!ASSET_BINDING) {
-        // This is the error message you are seeing in the browser
+    if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
+        // MODERN: Binding is named ASSETS and uses the .fetch method
+        ASSET_BINDING = env.ASSETS;
+        accessMethod = 'fetch';
+    } else if (env.__STATIC_CONTENT) {
+        // LEGACY: Binding is named __STATIC_CONTENT and uses the .get method
+        ASSET_BINDING = env.__STATIC_CONTENT;
+        accessMethod = 'get';
+    } else {
         throw new Error("Asset binding (env.ASSETS or env.__STATIC_CONTENT) is missing.");
     }
 
-    // 2. Use the determined binding to fetch the asset
-    // Note: The legacy binding uses .get(), the modern uses .fetch(), but .fetch() is safer here.
-    const asset = await ASSET_BINDING.fetch(`/${filename}`); 
+    // 2. Execute the correct access method
+    let response;
     
-    if (!asset.ok) {
-        throw new Error(`Asset not found: ${filename} (Status: ${asset.status})`);
+    if (accessMethod === 'fetch') {
+        // Modern method returns a Response object
+        response = await ASSET_BINDING.fetch(`/${filename}`);
+    } else {
+        // Legacy method returns the file content as a string directly
+        response = await ASSET_BINDING.get(filename); // Note: No leading '/' here for .get()
     }
-    return asset.text();
+    
+    // 3. Return the content as a string
+    if (accessMethod === 'fetch') {
+        if (!response.ok) {
+            throw new Error(`Asset fetch failed: ${filename} (Status: ${response.status})`);
+        }
+        return response.text();
+    } else {
+        if (response === null) {
+            throw new Error(`Asset get failed: ${filename} (Not found)`);
+        }
+        return response; // Already the text content
+    }
 }
 
 // =================================================================
