@@ -1,28 +1,38 @@
-// index.js - FINAL AND CLEAN VERSION
+// src/index.js - ASSET BINDING VERSION (Stable Fix)
 
 // =================================================================
-// IMPORTS
+// IMPORTS (Only keep API/Worker imports)
 // =================================================================
 
 import { handleSignUp, handleLogin } from './auth';
 import { verifyJWT } from './session'; 
-import AUTH_HTML from './auth.html'; 
+// DELETED: import AUTH_HTML from './auth.html'; 
+// DELETED: import { STYLE_STRING } from './authStyles'; 
+// DELETED: import AUTH_CLIENT_JS_CONTENT from './authClient.js?raw'; 
 
-// B. IMPORT STYLES (Relies on 'export const STYLE_STRING' being in authStyles.js)
-import { STYLE_STRING } from './authStyles'; 
-
-// C. IMPORT CLIENT JS: Use the simple raw import. The content is now server-safe.
-import AUTH_CLIENT_JS_CONTENT from './authClient.js?raw'; // <--- SUCCESSFUL FIX
-
-// Assuming all schedule functions (including trigger) are in schedule.js
+// Existing API/Schedule imports remain:
 import { handleSetSchedule, handleScheduledTrigger, handleScheduleList, handleScheduleDelete, handleScheduleToggle } from './schedule'; 
 import { handleDeviceAdd, handleDeviceList, handleDeviceDelete } from './device'; 
 
 
 // =================================================================
-// JWT Authorization Middleware (No Change)
+// NEW: ASSET READING UTILITY
 // =================================================================
 
+// The build system automatically provides env.ASSETS when [site] is configured.
+async function getAssetContent(env, filename) {
+    // The Worker API to read assets is env.ASSETS.fetch() or env.ASSETS.get()
+    const asset = await env.ASSETS.fetch(`/${filename}`); 
+    if (!asset.ok) {
+        throw new Error(`Asset not found: ${filename} (Status: ${asset.status})`);
+    }
+    return asset.text();
+}
+
+
+// =================================================================
+// JWT Authorization Middleware (No Change)
+// =================================================================
 async function authorizeRequest(request, env) {
     let token = request.headers.get('Authorization');
     if (token && token.startsWith('Bearer ')) {
@@ -62,23 +72,38 @@ export default {
     // -------------------------------------------------------------
     if (path === '/' || path === '/auth.html') {
         
-        // 1. Clean the HTML: Remove the script tag.
-        let injectedHtml = AUTH_HTML.replace('<script type="module" src="./authClient.js"></script>', '');
-        
-        // 2. Inject Styles into the HTML head
-        const styleTag = `<style>${STYLE_STRING}</style>`;
-        injectedHtml = injectedHtml.replace('</head>', `${styleTag}</head>`);
-        
-        // 3. Inject Client Script directly into the HTML body using the raw content.
-        // The script is now server-safe due to changes in authClient.js.
-        const finalScriptTag = `<script type="text/javascript">${AUTH_CLIENT_JS_CONTENT}</script>`;
+        try {
+            // 1. Read all file contents from the Asset Store
+            const AUTH_HTML = await getAssetContent(env, 'auth.html');
+            const AUTH_STYLES_JS_CONTENT = await getAssetContent(env, 'authStyles.js');
+            const AUTH_CLIENT_JS_CONTENT = await getAssetContent(env, 'authClient.js');
 
-        injectedHtml = injectedHtml.replace('</body>', `${finalScriptTag}</body>`);
-        
-        return new Response(injectedHtml, {
-            status: 200,
-            headers: { 'Content-Type': 'text/html' }
-        });
+            // 2. Extract STYLE_STRING from authStyles.js content
+            // We use a regex to safely extract the string content.
+            const styleMatch = AUTH_STYLES_JS_CONTENT.match(/export const STYLE_STRING = `([^`]+)`/);
+            const STYLE_STRING = styleMatch ? styleMatch[1] : '';
+
+            // 3. Inject Styles into the HTML head
+            const styleTag = `<style>${STYLE_STRING}</style>`;
+            let injectedHtml = AUTH_HTML.replace('</head>', `${styleTag}</head>`);
+            
+            // 4. Remove the old script link and inject the raw script content
+            // This replacement is CRITICAL to avoid the browser trying to fetch the file twice.
+            injectedHtml = injectedHtml.replace('<script type="module" src="./authClient.js"></script>', '');
+            
+            const finalScriptTag = `<script type="text/javascript">${AUTH_CLIENT_JS_CONTENT}</script>`;
+            injectedHtml = injectedHtml.replace('</body>', `${finalScriptTag}</body>`);
+
+            return new Response(injectedHtml, {
+                status: 200,
+                headers: { 'Content-Type': 'text/html' }
+            });
+            
+        } catch (error) {
+            console.error("Asset serving error:", error);
+            // If assets fail, return a plain error.
+            return new Response(`Error serving UI (Assets missing or internal error): ${error.message}`, { status: 500 });
+        }
     }
 
     // API ROUTING
@@ -88,13 +113,11 @@ export default {
       return handleProtectedApi(path, method, request, env);
     }
     
-    // Fallback 404 for non-API, non-root paths
+    // Fallback 404
     return new Response('API Route Not Found.', { status: 404 });
   },
   
-  // -------------------------------------------------------------
   // SCHEDULED HANDLER (No Change)
-  // -------------------------------------------------------------
   async scheduled(event, env, ctx) {
     console.log("Cron worker has been triggered.");
     ctx.waitUntil(handleScheduledTrigger(event, env, ctx)); 
@@ -103,8 +126,8 @@ export default {
 
 // =================================================================
 // API ROUTERS (No Change)
+// ... (The handleUserApi and handleProtectedApi functions go here)
 // =================================================================
-
 async function handleUserApi(path, method, request, env) {
   switch (path) {
     case '/api/user/signup':
