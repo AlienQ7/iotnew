@@ -10,55 +10,57 @@ import { verifyJWT } from './session';
 import { handleSetSchedule, handleScheduledTrigger, handleScheduleList, handleScheduleDelete, handleScheduleToggle } from './schedule'; 
 import { handleDeviceAdd, handleDeviceList, handleDeviceDelete } from './device'; 
 
-// oiiii cloudflare detect the changes!!!!!!! fast
 // =================================================================
-// FINAL: ASSET READING UTILITY (Absolute Fix)
+// FINAL: ASSET READING UTILITY (Handles path prefixing and methods)
 // =================================================================
-
+// 1
 async function getAssetContent(env, filename) {
     let ASSET_BINDING;
     let accessMethod;
+    const pathsToTry = [filename, `public/${filename}`]; // Try both filename and 'public/filename'
 
     // 1. Determine the correct binding object and method
     if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
-        // MODERN: Uses .fetch method
         ASSET_BINDING = env.ASSETS;
         accessMethod = 'fetch';
     } else if (env.__STATIC_CONTENT) {
-        // LEGACY: Uses the .get method
         ASSET_BINDING = env.__STATIC_CONTENT;
         accessMethod = 'get';
     } else {
         throw new Error("Asset binding (env.ASSETS or env.__STATIC_CONTENT) is missing.");
     }
 
-    // 2. Execute the correct access method
-    let response;
-    
-    if (accessMethod === 'fetch') {
-        // Modern method expects path with leading slash
-        response = await ASSET_BINDING.fetch(`/${filename}`); 
-    } else {
-        // Legacy method EXPECTS key WITHOUT leading slash
-        // We ensure 'filename' doesn't have a leading slash before passing it.
-        const key = filename.startsWith('/') ? filename.substring(1) : filename; 
-        response = await ASSET_BINDING.get(key); 
-    }
-    
-    // 3. Return the content as a string
-    if (accessMethod === 'fetch') {
-        if (!response.ok) {
-            throw new Error(`Asset fetch failed: ${filename} (Status: ${response.status})`);
+    // 2. Iterate through paths to find the asset
+    for (const key of pathsToTry) {
+        let response = null;
+
+        try {
+            if (accessMethod === 'fetch') {
+                // Modern method expects path with leading slash
+                response = await ASSET_BINDING.fetch(`/${key}`);
+                if (response.ok) {
+                    return response.text();
+                }
+            } else {
+                // Legacy method EXPECTS key WITHOUT leading slash
+                const finalKey = key.startsWith('/') ? key.substring(1) : key;
+                response = await ASSET_BINDING.get(finalKey);
+                
+                // .get() returns null if not found, or the content string if found.
+                if (response !== null) {
+                    return response; // Success, return the text content
+                }
+            }
+        } catch (e) {
+            // Ignore temporary fetch/get errors and continue trying the next path
+            console.warn(`Attempt failed for key: ${key}. Error: ${e.message}`);
         }
-        return response.text();
-    } else {
-        if (response === null) {
-            // This error message will be caught and displayed (your current error)
-            throw new Error(`Asset get failed: ${filename} (Not found)`); 
-        }
-        return response; // Already the text content
     }
+
+    // 3. If the loop completes without finding the asset, fail.
+    throw new Error(`Asset get failed: ${filename} (Not found on standard or prefixed path).`);
 }
+
 
 // =================================================================
 // JWT Authorization Middleware (No Change)
