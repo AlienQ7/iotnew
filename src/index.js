@@ -14,21 +14,28 @@ import { verifyJWT } from './session';
 import { handleSetSchedule, handleScheduledTrigger, handleScheduleList, handleScheduleDelete, handleScheduleToggle } from './schedule'; 
 import { handleDeviceAdd, handleDeviceList, handleDeviceDelete } from './device'; 
 
-
 // =================================================================
-// NEW: ASSET READING UTILITY
+// NEW: ASSET READING UTILITY (Updated with Fallback)
 // =================================================================
 
-// The build system automatically provides env.ASSETS when [site] is configured.
 async function getAssetContent(env, filename) {
-    // The Worker API to read assets is env.ASSETS.fetch() or env.ASSETS.get()
-    const asset = await env.ASSETS.fetch(`/${filename}`); 
+    // 1. Check for the standard binding (ASSETS) or the legacy binding (__STATIC_CONTENT)
+    const ASSET_BINDING = env.ASSETS || env.__STATIC_CONTENT;
+
+    if (!ASSET_BINDING) {
+        // This is the error message you are seeing in the browser
+        throw new Error("Asset binding (env.ASSETS or env.__STATIC_CONTENT) is missing.");
+    }
+
+    // 2. Use the determined binding to fetch the asset
+    // Note: The legacy binding uses .get(), the modern uses .fetch(), but .fetch() is safer here.
+    const asset = await ASSET_BINDING.fetch(`/${filename}`); 
+    
     if (!asset.ok) {
         throw new Error(`Asset not found: ${filename} (Status: ${asset.status})`);
     }
     return asset.text();
 }
-
 
 // =================================================================
 // JWT Authorization Middleware (No Change)
