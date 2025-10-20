@@ -1,10 +1,7 @@
 // V 0.0.01
 
 import { generateJWT } from './session'; // Import the function from our new session.js file
-
-// =================================================================
 // PASSWORD HASHING/VERIFICATION FUNCTIONS
-// =================================================================
 
 // Function to generate a secure hash for a password using Web Crypto API (required for Workers)
 async function hashPassword(password) {
