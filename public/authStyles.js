@@ -1,7 +1,7 @@
 // authStyles.js - CORRECTED
 
 import { COLORS } from './constants.js';
-// yesssss
+
 // *** CRITICAL FIX: ADD 'export const' so index.js can import STYLE_STRING ***
 export const STYLE_STRING = `
 /* --- 1. KEYFRAME ANIMATION FOR GLOW --- */
