@@ -2,7 +2,7 @@
 const BACKEND_URL = "";
 const TOKEN_KEY = "auth_token";
 
-// CRITICAL FIX: Wrap ALL code in an immediately-invoked function expression (IIFE).
+// CRITICap ALL code in an immediately-invoked function expression (IIFE).
 // This prevents any code, even function definitions, from executing until the browser loads it.
 (function() {
 
