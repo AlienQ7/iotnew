@@ -1,4 +1,4 @@
-// V 0.0.02
+// V 0.0.03 register fix attempt
 // authClient.js - FINAL AND INDISPUTABLE SERVER-SAFE WRAPPER
 const BACKEND_URL = "";
 const TOKEN_KEY = "auth_token";
@@ -14,10 +14,8 @@ const TOKEN_KEY = "auth_token";
     // This function now includes a protective check: if running on the server, it quits immediately.
     function getDOMElements() {
         
-        // --- ADDED: THE CRITICAL SERVER GATE ---
+        // --- THE CRITICAL SERVER GATE ---
         if (typeof document === 'undefined') {
-            // If running on the server (where 'document' doesn't exist), return an empty object 
-            // to prevent the bundler from throwing a ReferenceError.
             return {}; 
         }
         // --------------------------------------
@@ -44,7 +42,6 @@ const TOKEN_KEY = "auth_token";
 
     // Function to immediately check if the user is already logged in
     function checkAuthStatus() {
-        // Safe check: does localStorage exist? (It does in the browser)
         if (typeof localStorage !== 'undefined' && localStorage.getItem(TOKEN_KEY)) {
             console.log("User already logged in. Redirecting to dashboard...");
         }
@@ -57,7 +54,6 @@ const TOKEN_KEY = "auth_token";
 
     function showMessage(type, text) {
         const { messageBox } = getDOMElements();
-        // Check if messageBox exists (it won't on the server)
         if (messageBox) { 
             messageBox.textContent = text;
             messageBox.className = `message ${type}`;
@@ -71,9 +67,9 @@ const TOKEN_KEY = "auth_token";
 
     function switchView(view) {
         const { messageBox, loginView, signupView, loginForm, signupForm } = getDOMElements();
-        // Check if elements exist
-        if (loginView) {
-            messageBox.style.display = 'none'; 
+        // Check if essential views exist before attempting manipulation
+        if (loginView && signupView) {
+            if (messageBox) messageBox.style.display = 'none'; 
             if (view === 'login') {
                 loginView.style.display = 'block';
                 signupView.style.display = 'none';
@@ -95,7 +91,6 @@ const TOKEN_KEY = "auth_token";
         e.preventDefault();
         const { loginForm, loginEmail, loginPassword } = getDOMElements();
         
-        // Safely access values only if elements exist
         const email = loginEmail ? loginEmail.value : '';
         const password = loginPassword ? loginPassword.value : '';
         
@@ -115,7 +110,6 @@ const TOKEN_KEY = "auth_token";
             const data = await response.json();
             
             if (response.ok && data.success) {
-                // Ensure localStorage check is safe
                 if (typeof localStorage !== 'undefined') localStorage.setItem(TOKEN_KEY, data.token);
                 showMessage('success', 'Login successful! Redirecting...');
                 
@@ -142,7 +136,6 @@ const TOKEN_KEY = "auth_token";
         e.preventDefault();
         const { signupForm, signupEmail, signupPassword } = getDOMElements();
         
-        // Safely access values only if elements exist
         const email = signupEmail ? signupEmail.value : '';
         const password = signupPassword ? signupPassword.value : '';
         
@@ -186,8 +179,14 @@ const TOKEN_KEY = "auth_token";
     // Initial check
     checkAuthStatus();
     
+    // --- FIX: Initial view setting moved here to ensure it runs immediately in the browser. ---
+    // We must ensure the view is initialized as 'login' even before DOMContentLoaded.
+    if (typeof document !== 'undefined') {
+        switchView('login');
+    }
+    // ------------------------------------------------------------------------------------------
+
     // Wait for the DOM elements to be ready before attaching listeners
-    // We only attach listeners if 'document' exists (i.e., we are in the browser).
     if (typeof document !== 'undefined') {
         document.addEventListener('DOMContentLoaded', () => {
             const { showSignup, showLogin, forgotPassword, loginForm, signupForm } = getDOMElements();
@@ -211,9 +210,6 @@ const TOKEN_KEY = "auth_token";
             // Form submission listeners
             if (loginForm) loginForm.addEventListener('submit', handleLogin);
             if (signupForm) signupForm.addEventListener('submit', handleSignup);
-            
-            // Ensure the initial view is set
-            switchView('login');
         });
     }
 
