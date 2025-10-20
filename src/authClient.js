@@ -1,4 +1,4 @@
-// V 0.0.04 - FINAL CONTROL FIX
+// V 0.0.06 - FINAL FIX: REMOVE DOMContentLoaded LISTENER
 // authClient.js - FINAL AND INDISPUTABLE SERVER-SAFE WRAPPER
 const BACKEND_URL = "";
 const TOKEN_KEY = "auth_token";
@@ -7,11 +7,10 @@ const TOKEN_KEY = "auth_token";
 (function() {
     
     // =================================================================
-    // 1. DYNAMIC ELEMENT ACCESS (The Definitive Server Gate Fix)
+    // 1. DYNAMIC ELEMENT ACCESS (No Caching)
     // =================================================================
-    let elements = null;
 
-    // This function now includes a protective check: if running on the server, it quits immediately.
+    // Retrieves elements freshly on every call.
     function getDOMElements() {
         
         // --- THE CRITICAL SERVER GATE ---
@@ -20,27 +19,23 @@ const TOKEN_KEY = "auth_token";
         }
         // --------------------------------------
         
-        if (!elements) {
-            elements = {
-                loginView: document.getElementById('login-view'),
-                signupView: document.getElementById('signup-view'),
-                loginForm: document.getElementById('login-form'),
-                signupForm: document.getElementById('signup-form'),
-                messageBox: document.getElementById('message-box'),
-                loginEmail: document.getElementById('login-email'),
-                loginPassword: document.getElementById('login-password'),
-                signupEmail: document.getElementById('signup-email'),
-                signupPassword: document.getElementById('signup-password'),
-                showSignup: document.getElementById('show-signup'),
-                showLogin: document.getElementById('show-login'),
-                forgotPassword: document.getElementById('forgot-password'),
-            };
-        }
-        return elements;
+        return {
+            loginView: document.getElementById('login-view'),
+            signupView: document.getElementById('signup-view'),
+            loginForm: document.getElementById('login-form'),
+            signupForm: document.getElementById('signup-form'),
+            messageBox: document.getElementById('message-box'),
+            loginEmail: document.getElementById('login-email'),
+            loginPassword: document.getElementById('login-password'),
+            signupEmail: document.getElementById('signup-email'),
+            signupPassword: document.getElementById('signup-password'),
+            showSignup: document.getElementById('show-signup'),
+            showLogin: document.getElementById('show-login'),
+            forgotPassword: document.getElementById('forgot-password'),
+        };
     }
 
 
-    // Function to immediately check if the user is already logged in
     function checkAuthStatus() {
         if (typeof localStorage !== 'undefined' && localStorage.getItem(TOKEN_KEY)) {
             console.log("User already logged in. Redirecting to dashboard...");
@@ -67,18 +62,25 @@ const TOKEN_KEY = "auth_token";
 
     function switchView(view) {
         const { messageBox, loginView, signupView, loginForm, signupForm } = getDOMElements();
-        // Check if essential views exist before attempting manipulation
-        if (loginView && signupView) {
-            if (messageBox) messageBox.style.display = 'none'; 
-            if (view === 'login') {
-                loginView.style.display = 'block';
-                signupView.style.display = 'none';
-                if (loginForm) loginForm.reset();
-            } else {
-                loginView.style.display = 'none';
-                signupView.style.display = 'block';
-                if (signupForm) signupForm.reset();
-            }
+        
+        // CRITICAL CHECK: Log if elements are missing
+        if (!loginView || !signupView) {
+             console.error(`View switching failed: Login View (${!!loginView}) or Signup View (${!!signupView}) container not found. Check IDs in auth.html.`);
+             return;
+        }
+
+        if (messageBox) messageBox.style.display = 'none'; 
+        
+        if (view === 'login') {
+            // Ensure login view is visible, signup is hidden
+            loginView.style.display = 'block';
+            signupView.style.display = 'none';
+            if (loginForm) loginForm.reset();
+        } else {
+            // Ensure signup view is visible, login is hidden
+            loginView.style.display = 'none';
+            signupView.style.display = 'block';
+            if (signupForm) signupForm.reset();
         }
     }
 
@@ -94,7 +96,7 @@ const TOKEN_KEY = "auth_token";
         const email = loginEmail ? loginEmail.value : '';
         const password = loginPassword ? loginPassword.value : '';
         
-        const button = loginForm.querySelector('.auth-button');
+        const button = loginForm ? loginForm.querySelector('.auth-button') : null;
         if (button) {
             button.textContent = 'LOGGING IN...';
             button.disabled = true;
@@ -139,7 +141,7 @@ const TOKEN_KEY = "auth_token";
         const email = signupEmail ? signupEmail.value : '';
         const password = signupPassword ? signupPassword.value : '';
         
-        const button = signupForm.querySelector('.auth-button');
+        const button = signupForm ? signupForm.querySelector('.auth-button') : null;
         if (button) {
             button.textContent = 'REGISTERING...';
             button.disabled = true;
@@ -173,40 +175,38 @@ const TOKEN_KEY = "auth_token";
     }
 
     // =================================================================
-    // 4. ATTACH EVENT LISTENERS (Initial Run)
+    // 4. IMMEDIATE EXECUTION AND ATTACHMENT
     // =================================================================
     
     // Initial check (Can run immediately)
     checkAuthStatus();
     
-    // Wait for the DOM elements to be ready before attaching listeners
+    // Immediate Attachment and Initialization (No DOMContentLoaded)
     if (typeof document !== 'undefined') {
-        document.addEventListener('DOMContentLoaded', () => {
-            const { showSignup, showLogin, forgotPassword, loginForm, signupForm } = getDOMElements();
-            
-            // Event listeners for view switching
-            if (showSignup) showSignup.addEventListener('click', (e) => {
-                e.preventDefault();
-                switchView('signup');
-            });
+        const { showSignup, showLogin, forgotPassword, loginForm, signupForm } = getDOMElements();
+        
+        // Event listeners for view switching
+        if (showSignup) showSignup.addEventListener('click', (e) => {
+            e.preventDefault();
+            switchView('signup');
+        });
 
-            if (showLogin) showLogin.addEventListener('click', (e) => {
-                e.preventDefault();
-                switchView('login');
-            });
-
-            if (forgotPassword) forgotPassword.addEventListener('click', (e) => {
-                e.preventDefault();
-                showMessage('info', "Password reset functionality is currently under development.");
-            });
-            
-            // Form submission listeners
-            if (loginForm) loginForm.addEventListener('submit', handleLogin);
-            if (signupForm) signupForm.addEventListener('submit', handleSignup);
-            
-            // --- CRITICAL FIX: Enforce the initial view AFTER all elements and listeners are ready ---
+        if (showLogin) showLogin.addEventListener('click', (e) => {
+            e.preventDefault();
             switchView('login');
         });
+
+        if (forgotPassword) forgotPassword.addEventListener('click', (e) => {
+            e.preventDefault();
+            showMessage('info', "Password reset functionality is currently under development.");
+        });
+        
+        // Form submission listeners
+        if (loginForm) loginForm.addEventListener('submit', handleLogin);
+        if (signupForm) signupForm.addEventListener('submit', handleSignup);
+        
+        // --- CRITICAL FIX: Enforce the initial view immediately ---
+        switchView('login');
     }
 
 })();
