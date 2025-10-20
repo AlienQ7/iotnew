@@ -1,5 +1,5 @@
-// V 0.0.06 - FINAL FIX: REMOVE DOMContentLoaded LISTENER
-// authClient.js - FINAL AND INDISPUTABLE SERVER-SAFE WRAPPER
+// V 0.0.07 - FINAL ATTEMPT: DIRECT DOM ACCESS & NO EXTERNAL IMPORTS
+// authClient.js - Replaces imports with inline constants for robust injection
 const BACKEND_URL = "";
 const TOKEN_KEY = "auth_token";
 
@@ -7,32 +7,15 @@ const TOKEN_KEY = "auth_token";
 (function() {
     
     // =================================================================
-    // 1. DYNAMIC ELEMENT ACCESS (No Caching)
+    // 1. ELEMENT RETRIEVAL UTILITY (Simplified for direct use)
     // =================================================================
 
-    // Retrieves elements freshly on every call.
-    function getDOMElements() {
-        
-        // --- THE CRITICAL SERVER GATE ---
-        if (typeof document === 'undefined') {
-            return {}; 
+    // This runs only on the client side, retrieving a single, known element.
+    function getElement(id) {
+        if (typeof document !== 'undefined') {
+            return document.getElementById(id);
         }
-        // --------------------------------------
-        
-        return {
-            loginView: document.getElementById('login-view'),
-            signupView: document.getElementById('signup-view'),
-            loginForm: document.getElementById('login-form'),
-            signupForm: document.getElementById('signup-form'),
-            messageBox: document.getElementById('message-box'),
-            loginEmail: document.getElementById('login-email'),
-            loginPassword: document.getElementById('login-password'),
-            signupEmail: document.getElementById('signup-email'),
-            signupPassword: document.getElementById('signup-password'),
-            showSignup: document.getElementById('show-signup'),
-            showLogin: document.getElementById('show-login'),
-            forgotPassword: document.getElementById('forgot-password'),
-        };
+        return null;
     }
 
 
@@ -48,7 +31,7 @@ const TOKEN_KEY = "auth_token";
     // =================================================================
 
     function showMessage(type, text) {
-        const { messageBox } = getDOMElements();
+        const messageBox = getElement('message-box');
         if (messageBox) { 
             messageBox.textContent = text;
             messageBox.className = `message ${type}`;
@@ -60,38 +43,15 @@ const TOKEN_KEY = "auth_token";
         }
     }
 
-    function switchView(view) {
-        const { messageBox, loginView, signupView, loginForm, signupForm } = getDOMElements();
-        
-        // CRITICAL CHECK: Log if elements are missing
-        if (!loginView || !signupView) {
-             console.error(`View switching failed: Login View (${!!loginView}) or Signup View (${!!signupView}) container not found. Check IDs in auth.html.`);
-             return;
-        }
-
-        if (messageBox) messageBox.style.display = 'none'; 
-        
-        if (view === 'login') {
-            // Ensure login view is visible, signup is hidden
-            loginView.style.display = 'block';
-            signupView.style.display = 'none';
-            if (loginForm) loginForm.reset();
-        } else {
-            // Ensure signup view is visible, login is hidden
-            loginView.style.display = 'none';
-            signupView.style.display = 'block';
-            if (signupForm) signupForm.reset();
-        }
-    }
-
-
     // =================================================================
-    // 3. API CALL HANDLERS (No Change)
+    // 3. API CALL HANDLERS (Simplified Element Access)
     // =================================================================
 
     async function handleLogin(e) {
         e.preventDefault();
-        const { loginForm, loginEmail, loginPassword } = getDOMElements();
+        const loginForm = getElement('login-form');
+        const loginEmail = getElement('login-email');
+        const loginPassword = getElement('login-password');
         
         const email = loginEmail ? loginEmail.value : '';
         const password = loginPassword ? loginPassword.value : '';
@@ -136,7 +96,9 @@ const TOKEN_KEY = "auth_token";
 
     async function handleSignup(e) {
         e.preventDefault();
-        const { signupForm, signupEmail, signupPassword } = getDOMElements();
+        const signupForm = getElement('signup-form');
+        const signupEmail = getElement('signup-email');
+        const signupPassword = getElement('signup-password');
         
         const email = signupEmail ? signupEmail.value : '';
         const password = signupPassword ? signupPassword.value : '';
@@ -158,7 +120,16 @@ const TOKEN_KEY = "auth_token";
             
             if (response.ok && data.success) {
                 showMessage('success', 'Account created! Please log in below.');
-                switchView('login'); 
+                
+                // CRITICAL: Switch to Login View after successful registration
+                const loginView = getElement('login-view');
+                const signupView = getElement('signup-view');
+                if (loginView && signupView) {
+                    loginView.style.display = 'block';
+                    signupView.style.display = 'none';
+                }
+                if (signupForm) signupForm.reset();
+
             } else {
                 showMessage('error', data.message || 'Registration failed. Check your password policy.');
             }
@@ -181,32 +152,51 @@ const TOKEN_KEY = "auth_token";
     // Initial check (Can run immediately)
     checkAuthStatus();
     
-    // Immediate Attachment and Initialization (No DOMContentLoaded)
+    // Immediate Attachment and Initialization (Direct Element Manipulation)
     if (typeof document !== 'undefined') {
-        const { showSignup, showLogin, forgotPassword, loginForm, signupForm } = getDOMElements();
+        const showSignup = getElement('show-signup');
+        const showLogin = getElement('show-login');
+        const forgotPassword = getElement('forgot-password');
+        const loginForm = getElement('login-form');
+        const signupForm = getElement('signup-form');
         
-        // Event listeners for view switching
-        if (showSignup) showSignup.addEventListener('click', (e) => {
+        const loginView = getElement('login-view');
+        const signupView = getElement('signup-view');
+        
+        // --- 1. View Switching Listeners (DIRECT MANIPULATION) ---
+        if (showSignup && loginView && signupView) showSignup.addEventListener('click', (e) => {
             e.preventDefault();
-            switchView('signup');
+            console.log("Switching to Signup View...");
+            loginView.style.display = 'none';
+            signupView.style.display = 'block';
+            const messageBox = getElement('message-box');
+            if (messageBox) messageBox.style.display = 'none'; 
         });
 
-        if (showLogin) showLogin.addEventListener('click', (e) => {
+        if (showLogin && loginView && signupView) showLogin.addEventListener('click', (e) => {
             e.preventDefault();
-            switchView('login');
+            console.log("Switching to Login View...");
+            loginView.style.display = 'block';
+            signupView.style.display = 'none';
+            const messageBox = getElement('message-box');
+            if (messageBox) messageBox.style.display = 'none'; 
         });
 
+        // --- 2. Initial View Enforcer ---
+        // This is necessary because the CSS 'display: none !important' is set on signup.
+        // We ensure login is block and signup is none, just in case the CSS failed.
+        if (loginView && signupView) {
+            loginView.style.display = 'block';
+            signupView.style.display = 'none';
+        }
+
+        // --- 3. Form Submission Listeners ---
         if (forgotPassword) forgotPassword.addEventListener('click', (e) => {
             e.preventDefault();
             showMessage('info', "Password reset functionality is currently under development.");
         });
-        
-        // Form submission listeners
         if (loginForm) loginForm.addEventListener('submit', handleLogin);
         if (signupForm) signupForm.addEventListener('submit', handleSignup);
-        
-        // --- CRITICAL FIX: Enforce the initial view immediately ---
-        switchView('login');
     }
 
 })();
