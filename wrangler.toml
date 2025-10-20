@@ -8,3 +8,8 @@ database_name = "newiot"
 database_id = "8bf6050b-5d7a-49fd-8074-18ade07b9eb1"
 [[triggers.crons]]
 crons = ["* * * * *"] 
+# CRITICAL FIX: ASSET BINDING
+# ===============================================
+[site]
+bucket = "public"
+
