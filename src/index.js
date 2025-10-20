@@ -10,21 +10,22 @@ import { verifyJWT } from './session';
 import { handleSetSchedule, handleScheduledTrigger, handleScheduleList, handleScheduleDelete, handleScheduleToggle } from './schedule'; 
 import { handleDeviceAdd, handleDeviceList, handleDeviceDelete } from './device'; 
 
+
 // =================================================================
-// FINAL: ASSET READING UTILITY (Handles both binding names and methods)
+// FINAL: ASSET READING UTILITY (Absolute Fix)
 // =================================================================
 
 async function getAssetContent(env, filename) {
-    // 1. Determine the correct binding object and method
     let ASSET_BINDING;
     let accessMethod;
 
+    // 1. Determine the correct binding object and method
     if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
-        // MODERN: Binding is named ASSETS and uses the .fetch method
+        // MODERN: Uses .fetch method
         ASSET_BINDING = env.ASSETS;
         accessMethod = 'fetch';
     } else if (env.__STATIC_CONTENT) {
-        // LEGACY: Binding is named __STATIC_CONTENT and uses the .get method
+        // LEGACY: Uses the .get method
         ASSET_BINDING = env.__STATIC_CONTENT;
         accessMethod = 'get';
     } else {
@@ -35,11 +36,13 @@ async function getAssetContent(env, filename) {
     let response;
     
     if (accessMethod === 'fetch') {
-        // Modern method returns a Response object
-        response = await ASSET_BINDING.fetch(`/${filename}`);
+        // Modern method expects path with leading slash
+        response = await ASSET_BINDING.fetch(`/${filename}`); 
     } else {
-        // Legacy method returns the file content as a string directly
-        response = await ASSET_BINDING.get(filename); // Note: No leading '/' here for .get()
+        // Legacy method EXPECTS key WITHOUT leading slash
+        // We ensure 'filename' doesn't have a leading slash before passing it.
+        const key = filename.startsWith('/') ? filename.substring(1) : filename; 
+        response = await ASSET_BINDING.get(key); 
     }
     
     // 3. Return the content as a string
@@ -50,7 +53,8 @@ async function getAssetContent(env, filename) {
         return response.text();
     } else {
         if (response === null) {
-            throw new Error(`Asset get failed: ${filename} (Not found)`);
+            // This error message will be caught and displayed (your current error)
+            throw new Error(`Asset get failed: ${filename} (Not found)`); 
         }
         return response; // Already the text content
     }
