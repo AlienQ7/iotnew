@@ -1,11 +1,10 @@
-// src/index.js - V 0.0.03 (Using import safety check for client script)
+// src/index.js - V 0.0.03 
 
 // NOTE: This code uses direct file imports, meaning auth.html, authStyles.js, 
 // and authClient.js MUST be located in the 'src/' directory.
 
 // =================================================================
 // IMPORTS
-// =================================================================
 
 import { handleSignUp, handleLogin } from './auth';
 import { verifyJWT } from './session'; 
@@ -16,7 +15,6 @@ import { STYLE_STRING } from './authStyles';
 import AUTH_CLIENT_JS_CONTENT from './authClient.js'; 
 
 
-// =================================================================
 // Failsafe JS Injection Helper (With Type Check)
 // =================================================================
 
@@ -58,7 +56,6 @@ function createFailsafeScriptTag(jsContent) {
     }
 }
 
-// =================================================================
 // JWT Authorization Middleware (No Change)
 // =================================================================
 async function authorizeRequest(request, env) {
@@ -86,7 +83,7 @@ async function authorizeRequest(request, env) {
     return { user: { email: decodedPayload.email } };
 }
 
-// =================================================================
+
 // MAIN WORKER HANDLER
 // =================================================================
 
@@ -96,7 +93,7 @@ export default {
     const path = url.pathname;
     const method = request.method;
 
-    // -------------------------------------------------------------
+
     // FRONTEND ROUTING: Serve auth.html on root path
     // -------------------------------------------------------------
     if (path === '/' || path === '/auth.html') {
@@ -137,7 +134,6 @@ export default {
     return new Response('API Route Not Found.', { status: 404 });
   },
   
-  // -------------------------------------------------------------
   // SCHEDULED HANDLER (No Change)
   // -------------------------------------------------------------
   async scheduled(event, env, ctx) {
@@ -146,7 +142,6 @@ export default {
   }
 };
 
-// =================================================================
 // API ROUTERS (No Change)
 // =================================================================
 async function handleUserApi(path, method, request, env) {
