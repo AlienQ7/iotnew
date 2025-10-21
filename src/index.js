@@ -1,6 +1,7 @@
-// src/index.js - FINAL GUARANTEE: Hardcoded Client Script
+// src/index.js - V 0.0.03 (Using import safety check for client script)
 
-// NOTE: This file assumes auth.html, authStyles.js, auth.js, and session.js are present.
+// NOTE: This code uses direct file imports, meaning auth.html, authStyles.js, 
+// and authClient.js MUST be located in the 'src/' directory.
 
 // =================================================================
 // IMPORTS
@@ -12,228 +13,50 @@ import { verifyJWT } from './session';
 // A. CRITICAL: Direct imports for the frontend content
 import AUTH_HTML from './auth.html'; 
 import { STYLE_STRING } from './authStyles'; 
-// NOTE: We no longer import authClient.js. Its content is hardcoded below.
+import AUTH_CLIENT_JS_CONTENT from './authClient.js'; 
 
 
 // =================================================================
-// HARDCODED CLIENT SCRIPT CONTENT (V 0.0.08 Logic)
+// Failsafe JS Injection Helper (With Type Check)
 // =================================================================
 
-const AUTH_CLIENT_JS_CONTENT = `
-// V 0.0.08 Logic - Hardcoded for Injection Safety
-const BACKEND_URL = "";
-const TOKEN_KEY = "auth_token";
-
-(function() {
+/**
+ * Strips comments and wraps the content in a safe, immediately-executing script tag.
+ * CRITICAL FIX: Ensures jsContent is a string, even if imported as a module object.
+ */
+function createFailsafeScriptTag(jsContent) {
+    let cleanContent = jsContent;
     
-    // =================================================================
-    // 1. AGGRESSIVE ELEMENT RETRIEVAL
-    // =================================================================
+    // Check if the import returned an object (e.g., { default: "..." })
+    if (typeof cleanContent === 'object' && cleanContent !== null && typeof cleanContent.default === 'string') {
+        cleanContent = cleanContent.default;
+    } else if (typeof cleanContent !== 'string') {
+        // Fail loudly if it's not a recognizable format
+        throw new Error("Could not extract client script content string for injection.");
+    }
     
-    let elements = null;
-
-    function getElements() {
-        if (elements) return elements;
-
-        const ids = [
-            'login-view', 'signup-view', 'login-form', 'signup-form', 'message-box',
-            'login-email', 'login-password', 'signup-email', 'signup-password',
-            'show-signup', 'show-login', 'forgot-password'
-        ];
-        
-        const foundElements = {};
-        if (typeof document !== 'undefined') {
-            ids.forEach(id => {
-                foundElements[id.replace(/-/g, '')] = document.getElementById(id);
-            });
-        }
-        
-        elements = foundElements;
-        return elements;
-    }
-
-
-    // =================================================================
-    // 2. UI AND API LOGIC (Uses Cached Elements)
-    // =================================================================
-
-    function showMessage(type, text) {
-        const { messagebox } = getElements();
-        if (messagebox) { 
-            messagebox.textContent = text;
-            // Use standard classes for styling
-            messagebox.className = 'message ' + (type === 'error' ? 'error' : type === 'success' ? 'success' : 'info'); 
-            messagebox.style.display = 'block';
+    try {
+        // 1. Strip block comments (/* ... */) and line comments (// ...)
+        cleanContent = cleanContent
+            .replace(/\/\*[\s\S]*?\*\/|([^\\:]|^)\/\/.*$/gm, '$1')
+            .trim();
             
-            setTimeout(() => {
-                messagebox.style.display = 'none';
-            }, 5000);
-        }
+        // 2. Wrap content in a simple, non-module script tag
+        return `
+            <script>
+            console.log("Client Script starting execution.");
+            try {
+                // The IIFE structure from authClient.js is expected here: (function() { ... })()
+                ${cleanContent}
+            } catch(e) {
+                console.error("Critical Execution Error in Injected Script:", e);
+            }
+            </script>
+        `;
+    } catch (e) {
+        throw new Error(`Failed during script sanitation: ${e.message}`);
     }
-
-    function switchView(view) {
-        const { loginview, signupview, messagebox, loginform, signupform } = getElements();
-        
-        if (!loginview || !signupview) {
-            console.error("Critical: View containers not found. Switching failed.");
-            // If views are missing, we cannot proceed with view switching logic.
-            return;
-        }
-
-        if (messagebox) messagebox.style.display = 'none'; 
-        
-        if (view === 'login') {
-            loginview.style.display = 'block';
-            signupview.style.display = 'none';
-            if (loginform) loginform.reset();
-        } else {
-            loginview.style.display = 'none';
-            signupview.style.display = 'block';
-            if (signupform) signupform.reset();
-        }
-    }
-
-    // --- API Handlers ---
-    async function handleLogin(e) {
-        e.preventDefault();
-        const { loginform, loginemail, loginpassword } = getElements();
-        
-        const email = loginemail ? loginemail.value : '';
-        const password = loginpassword ? loginpassword.value : '';
-        
-        const button = loginform ? loginform.querySelector('.auth-button') : null;
-        if (button) { button.textContent = 'LOGGING IN...'; button.disabled = true; }
-
-        try {
-            const response = await fetch(\`\${BACKEND_URL}/api/user/login\`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            });
-
-            const data = await response.json();
-            
-            if (response.ok && data.success) {
-                if (typeof localStorage !== 'undefined') localStorage.setItem(TOKEN_KEY, data.token);
-                showMessage('success', 'Login successful! Redirecting...');
-                
-                setTimeout(() => {
-                    console.log("LOGIN SUCCESS: Token stored. Dashboard redirect simulation.");
-                }, 1000);
-                
-            } else {
-                showMessage('error', data.message || 'Invalid credentials or login failed.');
-            }
-
-        } catch (error) {
-            console.error('Network or server error:', error);
-            showMessage('error', 'Connection error. Please try again.');
-        } finally {
-            if (button) {
-                button.textContent = 'LOGIN';
-                button.disabled = false;
-            }
-        }
-    }
-
-    async function handleSignup(e) {
-        e.preventDefault();
-        const { signupform, signupemail, signuppassword } = getElements();
-        
-        const email = signupemail ? signupemail.value : '';
-        const password = signuppassword ? signuppassword.value : '';
-        
-        const button = signupform ? signupform.querySelector('.auth-button') : null;
-        if (button) { button.textContent = 'REGISTERING...'; button.disabled = true; }
-
-        try {
-            const response = await fetch(\`\${BACKEND_URL}/api/user/signup\`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            });
-
-            const data = await response.json();
-            
-            if (response.ok && data.success) {
-                showMessage('success', 'Account created! Please log in below.');
-                switchView('login'); 
-            } else {
-                showMessage('error', data.message || 'Registration failed. Check your password policy.');
-            }
-
-        } catch (error) {
-            console.error('Network or server error:', error);
-            showMessage('error', 'Connection error. Please try again.');
-        } finally {
-            if (button) {
-                button.textContent = 'SIGN UP';
-                button.disabled = false;
-            }
-        }
-    }
-
-
-    // =================================================================
-    // 3. INITIALIZATION
-    // =================================================================
-    
-    if (typeof document !== 'undefined') {
-        
-        // Use a zero delay to ensure the DOM is fully parsed 
-        setTimeout(() => {
-            console.log("UI Initialization: Starting element lookup and listeners.");
-            getElements(); // Ensure elements are cached
-
-            const { showsignup, showlogin, forgotpassword, loginform, signupform } = elements;
-            
-            // --- Attach Listeners ---
-            if (showsignup) {
-                showsignup.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    switchView('signup');
-                    console.log("Clicked Switch to Signup.");
-                });
-            } else {
-                console.error("showsignup element not found.");
-            }
-
-            if (showlogin) {
-                showlogin.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    switchView('login');
-                    console.log("Clicked Switch to Login.");
-                });
-            } else {
-                console.error("showlogin element not found.");
-            }
-
-            if (forgotpassword) forgotpassword.addEventListener('click', (e) => {
-                e.preventDefault();
-                showMessage('info', "Password reset functionality is currently under development.");
-            });
-            
-            if (loginform) loginform.addEventListener('submit', handleLogin);
-            if (signupform) signupform.addEventListener('submit', handleSignup);
-            
-            // --- Enforce Initial View ---
-            switchView('login');
-
-        }, 0); 
-    }
-
-})();
-`;
-
-// =================================================================
-// SIMPLE SCRIPT INJECTOR (No Sanitation Needed)
-// =================================================================
-
-function createScriptTag(jsContent) {
-    // Just inject the content directly, relying on the IIFE to execute safely.
-    return `<script type="text/javascript">${jsContent}</script>`;
 }
-
 
 // =================================================================
 // JWT Authorization Middleware (No Change)
@@ -289,8 +112,8 @@ export default {
             // 3. Remove the external script link
             injectedHtml = injectedHtml.replace('<script type="module" src="./authClient.js"></script>', '');
             
-            // 4. Inject the failsafe, hardcoded script content
-            const finalScriptTag = createScriptTag(AUTH_CLIENT_JS_CONTENT);
+            // 4. Inject the failsafe, cleaned script content
+            const finalScriptTag = createFailsafeScriptTag(AUTH_CLIENT_JS_CONTENT);
             injectedHtml = injectedHtml.replace('</body>', `${finalScriptTag}</body>`);
 
             return new Response(injectedHtml, {
@@ -299,7 +122,6 @@ export default {
             });
             
         } catch (error) {
-            // This should only catch errors related to AUTH_HTML, not the script content.
             return new Response(`UI Injection Error: ${error.message}`, { status: 500 });
         }
     }
