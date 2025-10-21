@@ -1,61 +1,31 @@
 // src/index.js - V 0.0.03 
 
+// src/index.js - FINAL AND GUARANTEED UI SOLUTION (String Injection)
+
 // NOTE: This code uses direct file imports, meaning auth.html, authStyles.js, 
 // and authClient.js MUST be located in the 'src/' directory.
+// It bypasses the unstable Cloudflare [site] asset binding system.
 
 // =================================================================
 // IMPORTS
+// =================================================================
 
 import { handleSignUp, handleLogin } from './auth';
 import { verifyJWT } from './session'; 
 
 // A. CRITICAL: Direct imports for the frontend content
+// These imports read the entire file content as a string at build time.
+// This requires the frontend files to be moved back into the 'src/' folder.
 import AUTH_HTML from './auth.html'; 
 import { STYLE_STRING } from './authStyles'; 
 import AUTH_CLIENT_JS_CONTENT from './authClient.js'; 
 
+// B. Existing API/Schedule imports remain:
+import { handleSetSchedule, handleScheduledTrigger, handleScheduleList, handleScheduleDelete, handleScheduleToggle } from './schedule'; 
+import { handleDeviceAdd, handleDeviceList, handleDeviceDelete } from './device'; 
 
-// Failsafe JS Injection Helper (With Type Check)
+
 // =================================================================
-
-/**
- * Strips comments and wraps the content in a safe, immediately-executing script tag.
- * CRITICAL FIX: Ensures jsContent is a string, even if imported as a module object.
- */
-function createFailsafeScriptTag(jsContent) {
-    let cleanContent = jsContent;
-    
-    // Check if the import returned an object (e.g., { default: "..." })
-    if (typeof cleanContent === 'object' && cleanContent !== null && typeof cleanContent.default === 'string') {
-        cleanContent = cleanContent.default;
-    } else if (typeof cleanContent !== 'string') {
-        // Fail loudly if it's not a recognizable format
-        throw new Error("Could not extract client script content string for injection.");
-    }
-    
-    try {
-        // 1. Strip block comments (/* ... */) and line comments (// ...)
-        cleanContent = cleanContent
-            .replace(/\/\*[\s\S]*?\*\/|([^\\:]|^)\/\/.*$/gm, '$1')
-            .trim();
-            
-        // 2. Wrap content in a simple, non-module script tag
-        return `
-            <script>
-            console.log("Client Script starting execution.");
-            try {
-                // The IIFE structure from authClient.js is expected here: (function() { ... })()
-                ${cleanContent}
-            } catch(e) {
-                console.error("Critical Execution Error in Injected Script:", e);
-            }
-            </script>
-        `;
-    } catch (e) {
-        throw new Error(`Failed during script sanitation: ${e.message}`);
-    }
-}
-
 // JWT Authorization Middleware (No Change)
 // =================================================================
 async function authorizeRequest(request, env) {
@@ -83,7 +53,7 @@ async function authorizeRequest(request, env) {
     return { user: { email: decodedPayload.email } };
 }
 
-
+// =================================================================
 // MAIN WORKER HANDLER
 // =================================================================
 
@@ -93,7 +63,7 @@ export default {
     const path = url.pathname;
     const method = request.method;
 
-
+    // -------------------------------------------------------------
     // FRONTEND ROUTING: Serve auth.html on root path
     // -------------------------------------------------------------
     if (path === '/' || path === '/auth.html') {
@@ -106,11 +76,11 @@ export default {
             const styleTag = `<style>${STYLE_STRING}</style>`;
             injectedHtml = injectedHtml.replace('</head>', `${styleTag}</head>`);
             
-            // 3. Remove the external script link
+            // 3. Remove the external script link and inject the raw script content
+            // This replacement is CRITICAL to avoid the browser trying to fetch the file twice.
             injectedHtml = injectedHtml.replace('<script type="module" src="./authClient.js"></script>', '');
             
-            // 4. Inject the failsafe, cleaned script content
-            const finalScriptTag = createFailsafeScriptTag(AUTH_CLIENT_JS_CONTENT);
+            const finalScriptTag = `<script type="text/javascript">${AUTH_CLIENT_JS_CONTENT}</script>`;
             injectedHtml = injectedHtml.replace('</body>', `${finalScriptTag}</body>`);
 
             return new Response(injectedHtml, {
@@ -119,6 +89,7 @@ export default {
             });
             
         } catch (error) {
+            // If the imports themselves fail (highly unlikely now), this is the fallback.
             return new Response(`UI Injection Error: ${error.message}`, { status: 500 });
         }
     }
@@ -134,6 +105,7 @@ export default {
     return new Response('API Route Not Found.', { status: 404 });
   },
   
+  // -------------------------------------------------------------
   // SCHEDULED HANDLER (No Change)
   // -------------------------------------------------------------
   async scheduled(event, env, ctx) {
@@ -142,6 +114,7 @@ export default {
   }
 };
 
+// =================================================================
 // API ROUTERS (No Change)
 // =================================================================
 async function handleUserApi(path, method, request, env) {
