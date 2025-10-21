@@ -1,196 +1,179 @@
-// V 0.0.08 - FINAL FIX: AGGRESSIVE QUERY AND ELEMENT CACHING
-// authClient.js - No external imports, uses immediate execution.
-const BACKEND_URL = "";
-const TOKEN_KEY = "auth_token";
+// authStyles.js - CORRECTED
 
-(function() {
+import { COLORS } from './constants.js';
+
+// *** CRITICAL FIX: ADD 'export const' so index.js can import STYLE_STRING ***
+export const STYLE_STRING = `
+/* --- 1. KEYFRAME ANIMATION FOR GLOW --- */
+@keyframes pulseGlow {
+    from {
+        box-shadow: 0 0 5px ${COLORS.ACCENT}, 0 0 10px ${COLORS.ACCENT};
+    }
+    to {
+        box-shadow: 0 0 15px ${COLORS.ACCENT}80, 0 0 20px ${COLORS.ACCENT}30;
+    }
+}
+
+/* --- 2. GLOBAL & UTILITY STYLES --- */
+body {
+    background-color: ${COLORS.BG};
+    color: ${COLORS.FG};
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+/* --- 3. MAIN CARD LAYOUT --- */
+.auth-container {
+    background-color: ${COLORS.BG}; /* Using the same BG for deep contrast */
+    padding: 30px;
+    border-radius: 8px;
+    border: 1px solid ${COLORS.ACCENT_LOW}; /* Subtle border */
+    width: 90%; /* Responsive width for mobile */
+    max-width: 400px; /* Max width for desktop/laptop */
     
-    // =================================================================
-    // 1. AGGRESSIVE ELEMENT RETRIEVAL
-    // =================================================================
+    /* Neon Glow Effect on the Card Border */
+    box-shadow: 0 0 10px ${COLORS.ACCENT}AA, 0 0 20px ${COLORS.ACCENT}55;
+    transition: box-shadow 0.3s ease;
+}
+
+h2 {
+    color: ${COLORS.SUCCESS}; /* Green header, like your image */
+    text-align: center;
+    margin-bottom: 25px;
+    font-size: 1.8em;
+    text-transform: uppercase;
+}
+
+/* --- CRITICAL FIX: Ensure signup view is hidden by default --- */
+#signup-view {
+    display: none !important; 
+}
+
+/* --- 4. FORM ELEMENTS --- */
+.input-group {
+    margin-bottom: 20px;
+}
+
+input[type="email"],
+input[type="password"] {
+    width: 100%;
+    padding: 12px;
+    background-color: ${COLORS.BORDER}; /* Dark grey background */
+    border: 1px solid ${COLORS.AMBER_ORANGE}30; /* Light orange border */
+    color: ${COLORS.FG};
+    border-radius: 4px;
+    box-sizing: border-box; /* Include padding in width */
+    transition: border-color 0.3s ease;
+}
+
+input[type="email"]:focus,
+input[type="password"]:focus {
+    border-color: ${COLORS.AMBER_ORANGE}; /* Brighten border on focus */
+    outline: none;
+    box-shadow: 0 0 5px ${COLORS.AMBER_ORANGE}; /* Subtle glow on focus */
+}
+
+/* Placeholder styling */
+::placeholder {
+    color: ${COLORS.ACCENT}80; /* Faded orange placeholder */
+}
+
+/* --- 5. BUTTON STYLES (Primary Login/Signup) --- */
+.auth-button {
+    width: 100%;
+    padding: 15px;
+    margin-top: 15px;
+    background-color: ${COLORS.DARK_BURN}; /* Dark Orange Background */
+    color: ${COLORS.FG};
+    border: none;
+    border-radius: 4px;
+    font-size: 1.1em;
+    font-weight: bold;
+    cursor: pointer;
+    text-transform: uppercase;
     
-    // Cache all necessary elements once upon script execution.
-    // If any element is null, the entire script will fall back to a safe mode.
-    let elements = null;
-
-    function getElements() {
-        if (elements) return elements;
-
-        // --- List of all required IDs ---
-        const ids = [
-            'login-view', 'signup-view', 'login-form', 'signup-form', 'message-box',
-            'login-email', 'login-password', 'signup-email', 'signup-password',
-            'show-signup', 'show-login', 'forgot-password'
-        ];
-        
-        const foundElements = {};
-        if (typeof document !== 'undefined') {
-            ids.forEach(id => {
-                // IMPORTANT: Normalizing the key name by removing hyphens for cleaner JS property access
-                foundElements[id.replace(/-/g, '')] = document.getElementById(id);
-            });
-        }
-        
-        elements = foundElements;
-        return elements;
-    }
-
-
-    // =================================================================
-    // 2. UI AND API LOGIC (Uses Cached Elements)
-    // =================================================================
-
-    function showMessage(type, text) {
-        const { messagebox } = getElements();
-        if (messagebox) { 
-            messagebox.textContent = text;
-            messagebox.className = `message ${type}`;
-            messagebox.style.display = 'block';
-            
-            setTimeout(() => {
-                messagebox.style.display = 'none';
-            }, 5000);
-        }
-    }
-
-    function switchView(view) {
-        const { loginview, signupview, messageBox, loginform, signupform } = getElements();
-        
-        if (!loginview || !signupview) {
-            console.error("Critical: View containers not found. Switching failed.");
-            return;
-        }
-
-        if (messageBox) messageBox.style.display = 'none'; 
-        
-        if (view === 'login') {
-            loginview.style.display = 'block';
-            signupview.style.display = 'none';
-            if (loginform) loginform.reset();
-        } else {
-            loginview.style.display = 'none';
-            signupview.style.display = 'block';
-            if (signupform) signupform.reset();
-        }
-    }
-
-    // --- API Handlers (Placeholder for a clean execution test) ---
-    async function handleLogin(e) {
-        e.preventDefault();
-        const { loginform, loginemail, loginpassword } = getElements();
-        
-        const email = loginemail ? loginemail.value : '';
-        const password = loginpassword ? loginpassword.value : '';
-        
-        const button = loginform ? loginform.querySelector('.auth-button') : null;
-        if (button) { button.textContent = 'LOGGING IN...'; button.disabled = true; }
-
-        try {
-            const response = await fetch(`${BACKEND_URL}/api/user/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            });
-
-            const data = await response.json();
-            
-            if (response.ok && data.success) {
-                if (typeof localStorage !== 'undefined') localStorage.setItem(TOKEN_KEY, data.token);
-                showMessage('success', 'Login successful! Redirecting...');
-                
-                setTimeout(() => {
-                    console.log("LOGIN SUCCESS: Token stored. Dashboard redirect simulation.");
-                }, 1000);
-                
-            } else {
-                showMessage('error', data.message || 'Invalid credentials or login failed.');
-            }
-
-        } catch (error) {
-            console.error('Network or server error:', error);
-            showMessage('error', 'Connection error. Please try again.');
-        } finally {
-            if (button) {
-                button.textContent = 'LOGIN';
-                button.disabled = false;
-            }
-        }
-    }
-
-    async function handleSignup(e) {
-        e.preventDefault();
-        const { signupform, signupemail, signuppassword } = getElements();
-        
-        const email = signupemail ? signupemail.value : '';
-        const password = signuppassword ? signuppassword.value : '';
-        
-        const button = signupform ? signupform.querySelector('.auth-button') : null;
-        if (button) { button.textContent = 'REGISTERING...'; button.disabled = true; }
-
-        try {
-            const response = await fetch(`${BACKEND_URL}/api/user/signup`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            });
-
-            const data = await response.json();
-            
-            if (response.ok && data.success) {
-                showMessage('success', 'Account created! Please log in below.');
-                switchView('login'); 
-            } else {
-                showMessage('error', data.message || 'Registration failed. Check your password policy.');
-            }
-
-        } catch (error) {
-            console.error('Network or server error:', error);
-            showMessage('error', 'Connection error. Please try again.');
-        } finally {
-            if (button) {
-                button.textContent = 'SIGN UP';
-                button.disabled = false;
-            }
-        }
-    }
-
-
-    // =================================================================
-    // 3. INITIALIZATION
-    // =================================================================
+    /* Initial Glow */
+    box-shadow: 0 0 5px ${COLORS.ACCENT};
     
-    if (typeof document !== 'undefined') {
-        
-        // Use a slight delay to ensure the DOM is fully painted and the injected
-        // script block is fully parsed by the browser.
-        setTimeout(() => {
-            getElements(); // Ensure elements are cached
+    transition: background-color 0.2s, box-shadow 0.2s, transform 0.1s;
+}
 
-            const { showsignup, showlogin, forgotpassword, loginform, signupform } = elements;
-            
-            // --- Attach Listeners ---
-            if (showsignup) showsignup.addEventListener('click', (e) => {
-                e.preventDefault();
-                switchView('signup');
-            });
+.auth-button:hover {
+    background-color: ${COLORS.ACCENT}; /* Brighten background on hover */
+    box-shadow: 0 0 15px ${COLORS.ACCENT}, 0 0 25px ${COLORS.ACCENT}60;
+}
 
-            if (showlogin) showlogin.addEventListener('click', (e) => {
-                e.preventDefault();
-                switchView('login');
-            });
+/* ** CRITICAL RESPONSIVENESS/INTERACTIVITY: Instant Feedback ** */
+.auth-button:active {
+    /* Instantly changes on press */
+    transform: scale(0.98); 
+    box-shadow: 0 0 2px ${COLORS.ACCENT}; 
+}
 
-            if (forgotpassword) forgotpassword.addEventListener('click', (e) => {
-                e.preventDefault();
-                showMessage('info', "Password reset functionality is currently under development.");
-            });
-            
-            if (loginform) loginform.addEventListener('submit', handleLogin);
-            if (signupform) signupform.addEventListener('submit', handleSignup);
-            
-            // --- Enforce Initial View ---
-            switchView('login');
+/* --- 6. FOOTER/REGISTER LINK --- */
+.auth-footer {
+    text-align: center;
+    margin-top: 25px;
+    font-size: 0.9em;
+}
 
-        }, 0); 
+.auth-footer a {
+    color: ${COLORS.AMBER_ORANGE}; /* Orange link color */
+    text-decoration: none;
+    font-weight: bold;
+    transition: color 0.3s ease;
+}
+
+.auth-footer a:hover {
+    color: ${COLORS.FG};
+}
+
+/* --- 7. MESSAGE BOX (Error/Success) --- */
+.message {
+    text-align: center;
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+    font-weight: bold;
+    display: none; /* Hidden by default */
+}
+
+.message.error {
+    background-color: ${COLORS.DANGER}30;
+    border: 1px solid ${COLORS.DANGER};
+    color: ${COLORS.DANGER};
+}
+
+.message.success {
+    background-color: ${COLORS.SUCCESS}30;
+    border: 1px solid ${COLORS.SUCCESS};
+    color: ${COLORS.SUCCESS};
+}
+
+/* --- 8. MEDIA QUERIES (Simple Responsiveness) --- */
+@media (max-width: 600px) {
+    .auth-container {
+        padding: 25px;
+        /* Use vertical viewport height on small screens for better centering */
+        min-height: 100vh;
+        width: 100%;
+        max-width: none;
+        border-radius: 0;
+        box-shadow: none; /* Remove fancy glow on full-screen mobile */
     }
+}
+`;
 
-})();
+/**
+ * Function to dynamically inject the CSS string into the document head.
+ */
+export function injectStyles() {
+    const styleElement = document.createElement('style');
+    styleElement.textContent = STYLE_STRING;
+    document.head.appendChild(styleElement);
+}
