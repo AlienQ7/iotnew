@@ -1,7 +1,7 @@
-// src/index.js - V 0.0.05 (Static Asset Router for Modular Frontend)
+// src/index.js - V 0.0.06 (Static Asset Router for Modular Frontend)
 
 // =================================================================
-// Backend Imports
+// Backend Imports (Unchanged)
 // =================================================================
 import { handleSignUp, handleLogin } from './auth';
 import { verifyJWT } from './session'; 
@@ -11,10 +11,10 @@ import { handleDeviceAdd, handleDeviceList, handleDeviceDelete } from './device'
 // =================================================================
 // Frontend Asset Imports (Used for Static Serving)
 // =================================================================
-// These imports read the entire file content as a string at build time.
+// NOTE: auth-client.js, auth-styles.js, and constants.js are now being imported.
 import AUTH_HTML from './auth.html'; 
-import { STYLE_STRING } from './authStyles'; 
-import AUTH_CLIENT_JS_CONTENT from './auth-client.js'; // NOTE: Renamed file
+import { STYLE_STRING } from './auth-styles'; // CORRECTED IMPORT NAME
+import AUTH_CLIENT_JS_CONTENT from './auth-client.js'; 
 import CONSTANTS_JS_CONTENT from './constants.js'; 
 
 
@@ -56,7 +56,7 @@ export default {
     const method = request.method;
 
     // -------------------------------------------------------------
-    // STATIC ASSET ROUTING (The New Strategy)
+    // STATIC ASSET ROUTING
     // -------------------------------------------------------------
     // Serve HTML entry point
     if (path === '/' || path === '/auth.html') {
@@ -66,15 +66,15 @@ export default {
         });
     }
 
-    // Serve JS and CSS files directly to the browser
+    // Serve JS files directly to the browser
     const assetMap = {
         '/auth-client.js': AUTH_CLIENT_JS_CONTENT,
-        '/authStyles.js': `export const STYLE_STRING = \`${STYLE_STRING}\`;`, // Export STYLE_STRING content
+        '/auth-styles.js': `export const STYLE_STRING = \`${STYLE_STRING}\`;`, // CORRECTED PATH
         '/constants.js': CONSTANTS_JS_CONTENT,
     };
     
     if (path in assetMap) {
-        // Handle potential object export from build system (V 0.0.03 error fix)
+        // Handle potential object export from build system
         let content = assetMap[path];
         if (typeof content === 'object' && content !== null && typeof content.default === 'string') {
             content = content.default;
