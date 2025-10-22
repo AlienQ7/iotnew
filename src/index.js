@@ -1,32 +1,25 @@
-// src/index.js - V 0.0.03 
-
-// src/index.js - FINAL AND GUARANTEED UI SOLUTION (String Injection)
-
-// NOTE: This code uses direct file imports, meaning auth.html, authStyles.js, 
-// and authClient.js MUST be located in the 'src/' directory.
-// It bypasses the unstable Cloudflare [site] asset binding system.
+// src/index.js - V 0.0.05 (Static Asset Router for Modular Frontend)
 
 // =================================================================
-// IMPORTS
+// Backend Imports
 // =================================================================
-
 import { handleSignUp, handleLogin } from './auth';
 import { verifyJWT } from './session'; 
-
-// A. CRITICAL: Direct imports for the frontend content
-// These imports read the entire file content as a string at build time.
-// This requires the frontend files to be moved back into the 'src/' folder.
-import AUTH_HTML from './auth.html'; 
-import { STYLE_STRING } from './authStyles'; 
-import AUTH_CLIENT_JS_CONTENT from './authClient.js'; 
-
-// B. Existing API/Schedule imports remain:
 import { handleSetSchedule, handleScheduledTrigger, handleScheduleList, handleScheduleDelete, handleScheduleToggle } from './schedule'; 
 import { handleDeviceAdd, handleDeviceList, handleDeviceDelete } from './device'; 
 
+// =================================================================
+// Frontend Asset Imports (Used for Static Serving)
+// =================================================================
+// These imports read the entire file content as a string at build time.
+import AUTH_HTML from './auth.html'; 
+import { STYLE_STRING } from './authStyles'; 
+import AUTH_CLIENT_JS_CONTENT from './auth-client.js'; // NOTE: Renamed file
+import CONSTANTS_JS_CONTENT from './constants.js'; 
+
 
 // =================================================================
-// JWT Authorization Middleware (No Change)
+// JWT Authorization Middleware (Unchanged)
 // =================================================================
 async function authorizeRequest(request, env) {
     let token = request.headers.get('Authorization');
@@ -45,7 +38,6 @@ async function authorizeRequest(request, env) {
     if (!token) {
         return { response: new Response('Missing Authorization Token.', { status: 401 }) };
     }
-    // Assuming JWT_SECRET is available in env
     const decodedPayload = await verifyJWT(token, env.JWT_SECRET); 
     if (!decodedPayload || !decodedPayload.email) {
         return { response: new Response('Invalid or Expired Token. Please log in again.', { status: 401 }) };
@@ -64,37 +56,39 @@ export default {
     const method = request.method;
 
     // -------------------------------------------------------------
-    // FRONTEND ROUTING: Serve auth.html on root path
+    // STATIC ASSET ROUTING (The New Strategy)
     // -------------------------------------------------------------
+    // Serve HTML entry point
     if (path === '/' || path === '/auth.html') {
-        
-        try {
-            // 1. Start with the raw HTML string
-            let injectedHtml = AUTH_HTML;
-            
-            // 2. Inject Styles (STYLE_STRING is imported from authStyles.js)
-            const styleTag = `<style>${STYLE_STRING}</style>`;
-            injectedHtml = injectedHtml.replace('</head>', `${styleTag}</head>`);
-            
-            // 3. Remove the external script link and inject the raw script content
-            // This replacement is CRITICAL to avoid the browser trying to fetch the file twice.
-            injectedHtml = injectedHtml.replace('<script type="module" src="./authClient.js"></script>', '');
-            
-            const finalScriptTag = `<script type="text/javascript">${AUTH_CLIENT_JS_CONTENT}</script>`;
-            injectedHtml = injectedHtml.replace('</body>', `${finalScriptTag}</body>`);
-
-            return new Response(injectedHtml, {
-                status: 200,
-                headers: { 'Content-Type': 'text/html' }
-            });
-            
-        } catch (error) {
-            // If the imports themselves fail (highly unlikely now), this is the fallback.
-            return new Response(`UI Injection Error: ${error.message}`, { status: 500 });
-        }
+        return new Response(AUTH_HTML, {
+            status: 200,
+            headers: { 'Content-Type': 'text/html' }
+        });
     }
 
-    // API ROUTING
+    // Serve JS and CSS files directly to the browser
+    const assetMap = {
+        '/auth-client.js': AUTH_CLIENT_JS_CONTENT,
+        '/authStyles.js': `export const STYLE_STRING = \`${STYLE_STRING}\`;`, // Export STYLE_STRING content
+        '/constants.js': CONSTANTS_JS_CONTENT,
+    };
+    
+    if (path in assetMap) {
+        // Handle potential object export from build system (V 0.0.03 error fix)
+        let content = assetMap[path];
+        if (typeof content === 'object' && content !== null && typeof content.default === 'string') {
+            content = content.default;
+        }
+
+        return new Response(content, {
+            status: 200,
+            headers: { 'Content-Type': 'application/javascript' }
+        });
+    }
+
+    // -------------------------------------------------------------
+    // API ROUTING (Unchanged)
+    // -------------------------------------------------------------
     if (path.startsWith('/api/user/')) {
       return handleUserApi(path, method, request, env);
     } else if (path.startsWith('/api/device/') || path.startsWith('/api/schedule/')) {
@@ -106,7 +100,7 @@ export default {
   },
   
   // -------------------------------------------------------------
-  // SCHEDULED HANDLER (No Change)
+  // SCHEDULED HANDLER (Unchanged)
   // -------------------------------------------------------------
   async scheduled(event, env, ctx) {
     console.log("Cron worker has been triggered.");
@@ -115,7 +109,7 @@ export default {
 };
 
 // =================================================================
-// API ROUTERS (No Change)
+// API ROUTERS (Unchanged)
 // =================================================================
 async function handleUserApi(path, method, request, env) {
   switch (path) {
