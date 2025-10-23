@@ -7,7 +7,7 @@ import AUTH_HTML_TEMPLATE from './auth.html';
 import AUTH_CLIENT_JS_CONTENT from './auth-client.js';
 
 // 3. Import the style content (now a default-exported string)
-import CONSTANTS_CSS_CONTENT from './style-template.js'; 
+import CONSTANTS_CSS_CONTENT from './src/constants.js';
 
 // Define the placeholder IDs used in the auth.html file
 const SCRIPT_PLACEHOLDER = '<script id="auth-script-injection"></script>';
