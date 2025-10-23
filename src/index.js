@@ -1,56 +1,83 @@
-// src/index.js
+// src/index.js AI 1
 
-// 1. Import the HTML template (assumes build system imports it as a string)
-import AUTH_HTML_TEMPLATE from './auth.html'; 
+// 1. Import the HTML template
+import AUTH_HTML_TEMPLATE from './auth.html'; 
 
-// 2. Import the client script content (now a default-exported string)
+// 2. Import the client script content (The script content string from auth-client.js)
 import AUTH_CLIENT_JS_CONTENT from './auth-client.js';
 
-// 3. Import the style content (now a default-exported string)
-import CONSTANTS_CSS_CONTENT from './constants.js';
+// 3. Import the JavaScript constants (FIX: Use NAMED imports, fixing the build error)
+import { BACKEND_URL, TOKEN_KEY } from './constants.js';
 
-// Define the placeholder IDs used in the auth.html file
+// 4. Import the style content (FIX: Import STYLE_STRING from the correct style file)
+import { STYLE_STRING } from './auth-style.js';
+
+// Define the placeholder IDs from auth.html
 const SCRIPT_PLACEHOLDER = '<script id="auth-script-injection"></script>';
-const STYLE_PLACEHOLDER = '<style id="auth-style-injection"></style>'; 
+const STYLE_PLACEHOLDER = '<style id="auth-style-injection"></style>'; 
 
-// Function to generate the final HTML content with injected script and style
-function getAuthPage() {
-    // 1. Construct the final <script> tag with the content
-    const scriptTag = `<script type="module">${AUTH_CLIENT_JS_CONTENT}</script>`;
-
-    // 2. Construct the final <style> tag with the content
-    const styleTag = `<style>${CONSTANTS_CSS_CONTENT}</style>`;
-
-    // 3. Inject content into the HTML template
-    let finalHtml = AUTH_HTML_TEMPLATE;
-
-    // Inject the CSS content into the <style> placeholder
-    finalHtml = finalHtml.replace(STYLE_PLACEHOLDER, styleTag);
-
-    // Inject the JS content into the <script> placeholder
-    finalHtml = finalHtml.replace(SCRIPT_PLACEHOLDER, scriptTag);
-
-    return finalHtml;
-}
-
-// The main Worker exported handler
+// Main fetch handler for the Cloudflare Worker
 export default {
     async fetch(request, env, ctx) {
-        
         const url = new URL(request.url);
 
-        // Serve the authentication page for the root path
-        if (url.pathname === '/') {
-            const finalHtml = getAuthPage();
-
-            return new Response(finalHtml, {
+        // Serve the authentication page at the root path
+        if (url.pathname === '/' || url.pathname === '/auth') {
+            return new Response(getAuthPage(BACKEND_URL, TOKEN_KEY, AUTH_CLIENT_JS_CONTENT, STYLE_STRING), {
                 headers: {
-                    'Content-Type': 'text/html;charset=UTF-8',
+                    'Content-Type': 'text/html',
                 },
             });
         }
         
-        // Handle other routes or serve a 404
+        // Placeholder for API routing (This assumes you have a separate API router handling /api/*)
+        if (url.pathname.startsWith('/api/')) {
+            // You would need to import and use your API handler here
+            // Example: return handleApiRequest(request, env); 
+            return new Response("API not yet implemented.", { status: 501 });
+        }
+
         return new Response('Not Found', { status: 404 });
     },
+    
+    // Scheduled handler for the Cron trigger
+    async scheduled(event, env, ctx) {
+        // You would need to import and use your scheduled handler here
+        // Example: import { handleScheduledTrigger } from './scheduler.js';
+        // await handleScheduledTrigger(env, ctx);
+        console.log("Scheduler triggered.");
+    }
 };
+
+/**
+ * Generates the full HTML page with injected CSS and client-side JS.
+ * @param {string} backendUrl 
+ * @param {string} tokenKey 
+ * @param {string} clientScript 
+ * @param {string} styleContent 
+ * @returns {string} The final HTML string.
+ */
+function getAuthPage(backendUrl, tokenKey, clientScript, styleContent) {
+    // CRITICAL FIX: Inject constants directly to fix the client-side module import error
+    const CONSTANTS_INJECTION = `
+const BACKEND_URL = "${backendUrl}";
+const TOKEN_KEY = "${tokenKey}";
+    `;
+
+    // Combine the injected constants with the rest of the client script
+    const fullScriptContent = CONSTANTS_INJECTION + clientScript; 
+
+    // Inject as a standard script, not a module
+    const scriptTag = `<script>${fullScriptContent}</script>`;
+
+    // Construct the final <style> tag
+    const styleTag = `<style>${styleContent}</style>`;
+
+    // Inject content into the HTML template
+    let finalHtml = AUTH_HTML_TEMPLATE;
+
+    finalHtml = finalHtml.replace(STYLE_PLACEHOLDER, styleTag);
+    finalHtml = finalHtml.replace(SCRIPT_PLACEHOLDER, scriptTag);
+
+    return finalHtml;
+}
