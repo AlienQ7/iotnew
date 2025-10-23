@@ -10,15 +10,17 @@
 #type = "cron"
 #crons = ["* * * * *"]
 
-name = 'iotnew'
+name = "iotnew" # Use double quotes
 main = "src/index.js"
-type = "module"           
-compatibility_date = "2024-05-18"
+type = "module"
+compatibility_date = "2024-05-18" # Must be a recent date
 
+# D1 Database binding
 [[d1_databases]]
-binding = "newbind"
+binding = "newbind" # This is env.newbind in your Worker code
 database_name = "newiotbase"
 database_id = "72e3d762-eca0-43d1-a1d9-fcf747e1cce9"
 
+# Cron Triggers (Only include the crons array within the [[triggers]] section)
 [[triggers]]
 crons = ["* * * * *"]
