@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IoT Scheduler - Login / Register</title>
-    <!-- CRITICAL: Browser now fetches styles directly via a dedicated JS file -->
-    <script type="module" src="./auth-styles.js"></script>
+    <style id="auth-style-injection"></style> 
 </head>
 <body>
     <div class="auth-container">
@@ -30,7 +29,7 @@
             </div>
         </div>
 
-        <div id="signup-view">
+        <div id="signup-view" style="display: none;">
             <h2>Register</h2>
             <form id="signup-form">
                 <div class="input-group">
@@ -48,8 +47,6 @@
         
     </div>
     
-    <!-- CRITICAL: Browser now fetches the main script directly -->
-    <script type="module" src="./auth-client.js"></script>
+    <script id="auth-script-injection"></script>
 </body>
 </html>
-
