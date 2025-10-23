@@ -1,28 +1,28 @@
-// src/auth-client.js - Modular client-side logic V2
+// src/auth-client.js - Modular client-side logic V3
 
-// CRITICAL FIX: Wrap the entire script in a template string and export it as default.
 const SCRIPT_CONTENT = `
-// CRITICAL: We import constants from a separate file now
-import { BACKEND_URL, TOKEN_KEY } from './constants.js';
+// CRITICAL FIX: The constants BACKEND_URL and TOKEN_KEY are injected 
+// globally by index.js and are accessible here. The module import has been removed.
 
 // =================================================================
 // 1. DYNAMIC ELEMENT ACCESS
 // =================================================================
-// Element caching for performance and safety
 let elements = null;
 
 function getDOMElements() {
+    // Only perform the expensive DOM lookup once
     if (!elements) {
         elements = {
-            loginView: document.getElementById('login-view'),
-            signupView: document.getElementById('signup-view'),
             loginForm: document.getElementById('login-form'),
             signupForm: document.getElementById('signup-form'),
-            messageBox: document.getElementById('message-box'),
             loginEmail: document.getElementById('login-email'),
             loginPassword: document.getElementById('login-password'),
             signupEmail: document.getElementById('signup-email'),
             signupPassword: document.getElementById('signup-password'),
+            messageBox: document.getElementById('message-box'),
+            loginView: document.getElementById('login-view'),
+            signupView: document.getElementById('signup-view'),
+            
             showSignup: document.getElementById('show-signup'),
             showLogin: document.getElementById('show-login'),
             forgotPassword: document.getElementById('forgot-password'),
@@ -31,183 +31,135 @@ function getDOMElements() {
     return elements;
 }
 
-
-// Function to immediately check if the user is already logged in
-function checkAuthStatus() {
-    if (localStorage.getItem(TOKEN_KEY)) {
-        console.log("User already logged in. Redirecting to dashboard...");
-        // In a real app, this would redirect to the dashboard page.
-    }
-}
-
-
 // =================================================================
-// 2. UI MANIPULATION AND MESSAGE HANDLING
+// 2. UTILITY & VIEW FUNCTIONS
 // =================================================================
 
-function showMessage(type, text) {
+function showMessage(type, message) {
     const { messageBox } = getDOMElements();
-    if (messageBox) { 
-        messageBox.textContent = text;
-        // NOTE: Must escape backticks in the inner template string
-        messageBox.className = \`message \${type}\`; 
-        messageBox.style.display = 'block';
-        
-        setTimeout(() => {
-            messageBox.style.display = 'none';
-        }, 5000);
-    }
+    if (!messageBox) return;
+
+    messageBox.textContent = message;
+    messageBox.className = \`message \${type}\`;
+    messageBox.style.display = 'block';
 }
 
 /**
- * Handles the view switching logic.
- * Ensures the target view is visible and the other is hidden.
+ * Toggles visibility between the login and signup forms.
+ * @param {'login'|'signup'} view 
  */
 function switchView(view) {
     const { messageBox, loginView, signupView, loginForm, signupForm } = getDOMElements();
     
     if (loginView && signupView) {
-        if (messageBox) messageBox.style.display = 'none'; 
+        if (messageBox) showMessage('info', 'Switching view...'); // Clear and hide message box
+        messageBox.style.display = 'none';
 
         if (view === 'login') {
             loginView.style.display = 'block';
             signupView.style.display = 'none';
             if (loginForm) loginForm.reset();
+            showMessage('info', 'Please login with your credentials.');
         } else { // view === 'signup'
             loginView.style.display = 'none';
-            signupView.style.display = 'block'; // CRITICAL: This line makes the signup view appear
+            signupView.style.display = 'block'; // FIX: Make the signup form visible
             if (signupForm) signupForm.reset();
+            showMessage('info', 'Register to create your new account.');
         }
-    } else {
-        console.error("CRITICAL: Login or Signup view elements are missing from the DOM.");
     }
 }
 
-
 // =================================================================
-// 3. API CALL HANDLERS
+// 3. API FETCH HANDLERS (Simplified for example)
 // =================================================================
 
-async function handleLogin(e) {
-    e.preventDefault();
-    // Logic remains the same...
-    const { loginForm, loginEmail, loginPassword } = getDOMElements();
-    
-    const email = loginEmail ? loginEmail.value : '';
-    const password = loginPassword ? loginPassword.value : '';
-    
-    const button = loginForm.querySelector('.auth-button');
-    if (button) {
-        button.textContent = 'LOGGING IN...';
-        button.disabled = true;
-    }
+async function handleLoginSubmit(e) {
+    const { loginEmail, loginPassword } = getDOMElements();
+    const email = loginEmail.value;
+    const password = loginPassword.value;
+
+    showMessage('info', 'Logging in...');
 
     try {
         const response = await fetch(\`\${BACKEND_URL}/api/user/login\`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
+            body: JSON.stringify({ email, password }),
         });
 
         const data = await response.json();
-        
-        if (response.ok && data.token) {
+
+        if (response.ok) {
+            // Success: Store token and redirect
             localStorage.setItem(TOKEN_KEY, data.token);
             showMessage('success', 'Login successful! Redirecting...');
-            
-            setTimeout(() => {
-                // Redirect logic
-            }, 1000);
-            
+            // In a real app, you would redirect to the dashboard here: window.location.href = '/dashboard';
         } else {
-            showMessage('error', data.message || 'Invalid credentials or login failed.');
+            showMessage('error', data.message || 'Login failed. Invalid credentials.');
         }
-
     } catch (error) {
-        console.error('Network or server error:', error);
-        showMessage('error', 'Connection error. Please try again.');
-    } finally {
-        if (button) {
-            button.textContent = 'LOGIN';
-            button.disabled = false;
-        }
+        console.error('Login Fetch Error:', error);
+        showMessage('error', 'Network error. Could not connect to the server.');
     }
 }
 
-async function handleSignup(e) {
-    e.preventDefault();
-    // Logic remains the same...
-    const { signupForm, signupEmail, signupPassword } = getDOMElements();
-    
-    const email = signupEmail ? signupEmail.value : '';
-    const password = signupPassword ? signupPassword.value : '';
-    
-    const button = signupForm.querySelector('.auth-button');
-    if (button) {
-        button.textContent = 'REGISTERING...';
-        button.disabled = true;
-    }
+async function handleSignupSubmit(e) {
+    const { signupEmail, signupPassword } = getDOMElements();
+    const email = signupEmail.value;
+    const password = signupPassword.value;
+
+    showMessage('info', 'Registering...');
 
     try {
         const response = await fetch(\`\${BACKEND_URL}/api/user/signup\`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
+            body: JSON.stringify({ email, password }),
         });
 
         const data = await response.json();
-        
-        if (response.ok && data.success) {
-            showMessage('success', 'Account created! Please log in below.');
-            switchView('login'); 
-        } else {
-            showMessage('error', data.message || 'Registration failed. Check your password policy.');
-        }
 
-    } catch (error) {
-        console.error('Network or server error:', error);
-        showMessage('error', 'Connection error. Please try again.');
-    } finally {
-        if (button) {
-            button.textContent = 'SIGN UP';
-            button.disabled = false;
+        if (response.ok) {
+            showMessage('success', 'Registration successful! Please log in.');
+            switchView('login'); // Switch to login view after successful registration
+        } else {
+            showMessage('error', data.message || 'Registration failed.');
         }
+    } catch (error) {
+        console.error('Signup Fetch Error:', error);
+        showMessage('error', 'Network error. Could not connect to the server.');
     }
 }
 
 // =================================================================
-// 4. ATTACH EVENT LISTENERS
+// 4. MAIN INITIALIZATION & EVENT LISTENERS
 // =================================================================
 
-// Initial setup to run once the DOM is fully loaded
-document.addEventListener('DOMContentLoaded', () => {
-    const { showSignup, showLogin, forgotPassword, loginForm, signupForm } = getDOMElements();
-    
-    // Initial check and view setting (login view is default)
-    checkAuthStatus();
-    switchView('login');
-    
+const initialize = () => {
+    const elements = getDOMElements(); // Get all elements
+
     // Event listeners for view switching
-    if (showSignup) showSignup.addEventListener('click', (e) => {
+    if (elements.showSignup) elements.showSignup.addEventListener('click', (e) => {
         e.preventDefault();
         switchView('signup');
     });
 
-    if (showLogin) showLogin.addEventListener('click', (e) => {
+    if (elements.showLogin) elements.showLogin.addEventListener('click', (e) => {
         e.preventDefault();
         switchView('login');
     });
 
-    if (forgotPassword) forgotPassword.addEventListener('click', (e) => {
-        e.preventDefault();
-        showMessage('info', "Password reset functionality is currently under development.");
-    });
-    
-    // Form submission listeners
-    if (loginForm) loginForm.addEventListener('submit', handleLogin);
-    if (signupForm) signupForm.addEventListener('submit', handleSignup);
-});
+    // Event listeners for form submission
+    if (elements.loginForm) elements.loginForm.addEventListener('submit', handleLoginSubmit);
+    if (elements.signupForm) elements.signupForm.addEventListener('submit', handleSignupSubmit);
+};
+
+// Start the initialization process once the DOM is ready (or immediately if already ready)
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initialize);
+} else {
+    initialize();
+}
 `;
 
-// **FINAL FIX:** Export the entire script content as the default export.
 export default SCRIPT_CONTENT;
