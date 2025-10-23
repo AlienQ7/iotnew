@@ -15,7 +15,7 @@ import { handleDeviceAdd, handleDeviceList, handleDeviceDelete } from './device'
 import AUTH_HTML from './auth.html'; 
 import { STYLE_STRING } from './auth-styles'; // CORRECTED IMPORT NAME
 import AUTH_CLIENT_JS_CONTENT from './auth-client.js'; 
-import CONSTANTS_JS_CONTENT from './style-template.js'; //'./constants.js'; 
+import CONSTANTS_JS_CONTENT from './constants.js'; 
 
 
 // =================================================================
