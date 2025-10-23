@@ -1,4 +1,4 @@
-// src/auth-styles.js
+// src/auth-styles.js AI 1
 
 export const STYLE_STRING = `
     body {
