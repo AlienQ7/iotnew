@@ -1,166 +1,56 @@
-// src/index.js - V 0.0.06 (Static Asset Router for Modular Frontend)
+// src/index.js
 
-// =================================================================
-// Backend Imports (Unchanged)
-// =================================================================
-import { handleSignUp, handleLogin } from './auth';
-import { verifyJWT } from './session'; 
-import { handleSetSchedule, handleScheduledTrigger, handleScheduleList, handleScheduleDelete, handleScheduleToggle } from './schedule'; 
-import { handleDeviceAdd, handleDeviceList, handleDeviceDelete } from './device'; 
+// 1. Import the HTML template (assumes build system imports it as a string)
+import AUTH_HTML_TEMPLATE from './auth.html'; 
 
-// =================================================================
-// Frontend Asset Imports (Used for Static Serving)
-// =================================================================
-// NOTE: auth-client.js, auth-styles.js, and constants.js are now being imported.
-import AUTH_HTML from './auth.html'; 
-import { STYLE_STRING } from './auth-styles'; // CORRECTED IMPORT NAME
-import AUTH_CLIENT_JS_CONTENT from './auth-client.js'; 
-import CONSTANTS_JS_CONTENT from './constants.js'; 
+// 2. Import the client script content (now a default-exported string)
+import AUTH_CLIENT_JS_CONTENT from './auth-client.js';
 
+// 3. Import the style content (now a default-exported string)
+import CONSTANTS_CSS_CONTENT from './style-template.js'; 
 
-// =================================================================
-// JWT Authorization Middleware (Unchanged)
-// =================================================================
-async function authorizeRequest(request, env) {
-    let token = request.headers.get('Authorization');
-    if (token && token.startsWith('Bearer ')) {
-        token = token.substring(7);
-    } else {
-        const cookieHeader = request.headers.get('Cookie');
-        if (cookieHeader) {
-            const cookies = cookieHeader.split(';').map(c => c.trim());
-            const authTokenCookie = cookies.find(c => c.startsWith('auth_token='));
-            if (authTokenCookie) {
-                token = authTokenCookie.substring('auth_token='.length);
-            }
-        }
-    }
-    if (!token) {
-        return { response: new Response('Missing Authorization Token.', { status: 401 }) };
-    }
-    const decodedPayload = await verifyJWT(token, env.JWT_SECRET); 
-    if (!decodedPayload || !decodedPayload.email) {
-        return { response: new Response('Invalid or Expired Token. Please log in again.', { status: 401 }) };
-    }
-    return { user: { email: decodedPayload.email } };
+// Define the placeholder IDs used in the auth.html file
+const SCRIPT_PLACEHOLDER = '<script id="auth-script-injection"></script>';
+const STYLE_PLACEHOLDER = '<style id="auth-style-injection"></style>'; 
+
+// Function to generate the final HTML content with injected script and style
+function getAuthPage() {
+    // 1. Construct the final <script> tag with the content
+    const scriptTag = `<script type="module">${AUTH_CLIENT_JS_CONTENT}</script>`;
+
+    // 2. Construct the final <style> tag with the content
+    const styleTag = `<style>${CONSTANTS_CSS_CONTENT}</style>`;
+
+    // 3. Inject content into the HTML template
+    let finalHtml = AUTH_HTML_TEMPLATE;
+
+    // Inject the CSS content into the <style> placeholder
+    finalHtml = finalHtml.replace(STYLE_PLACEHOLDER, styleTag);
+
+    // Inject the JS content into the <script> placeholder
+    finalHtml = finalHtml.replace(SCRIPT_PLACEHOLDER, scriptTag);
+
+    return finalHtml;
 }
 
-// =================================================================
-// MAIN WORKER HANDLER
-// =================================================================
-
+// The main Worker exported handler
 export default {
-  async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-    const path = url.pathname;
-    const method = request.method;
+    async fetch(request, env, ctx) {
+        
+        const url = new URL(request.url);
 
-    // -------------------------------------------------------------
-    // STATIC ASSET ROUTING
-    // -------------------------------------------------------------
-    // Serve HTML entry point
-    if (path === '/' || path === '/auth.html') {
-        return new Response(AUTH_HTML, {
-            status: 200,
-            headers: { 'Content-Type': 'text/html' }
-        });
-    }
+        // Serve the authentication page for the root path
+        if (url.pathname === '/') {
+            const finalHtml = getAuthPage();
 
-    // Serve JS files directly to the browser
-    const assetMap = {
-        '/auth-client.js': AUTH_CLIENT_JS_CONTENT,
-        '/auth-styles.js': `export const STYLE_STRING = \`${STYLE_STRING}\`;`, // CORRECTED PATH
-        '/constants.js': CONSTANTS_JS_CONTENT,
-    };
-    
-    if (path in assetMap) {
-        // Handle potential object export from build system
-        let content = assetMap[path];
-        if (typeof content === 'object' && content !== null && typeof content.default === 'string') {
-            content = content.default;
+            return new Response(finalHtml, {
+                headers: {
+                    'Content-Type': 'text/html;charset=UTF-8',
+                },
+            });
         }
-
-        return new Response(content, {
-            status: 200,
-            headers: { 'Content-Type': 'application/javascript' }
-        });
-    }
-
-    // -------------------------------------------------------------
-    // API ROUTING (Unchanged)
-    // -------------------------------------------------------------
-    if (path.startsWith('/api/user/')) {
-      return handleUserApi(path, method, request, env);
-    } else if (path.startsWith('/api/device/') || path.startsWith('/api/schedule/')) {
-      return handleProtectedApi(path, method, request, env);
-    }
-    
-    // Fallback 404 for non-API, non-root paths
-    return new Response('API Route Not Found.', { status: 404 });
-  },
-  
-  // -------------------------------------------------------------
-  // SCHEDULED HANDLER (Unchanged)
-  // -------------------------------------------------------------
-  async scheduled(event, env, ctx) {
-    console.log("Cron worker has been triggered.");
-    ctx.waitUntil(handleScheduledTrigger(event, env, ctx)); 
-  }
+        
+        // Handle other routes or serve a 404
+        return new Response('Not Found', { status: 404 });
+    },
 };
-
-// =================================================================
-// API ROUTERS (Unchanged)
-// =================================================================
-async function handleUserApi(path, method, request, env) {
-  switch (path) {
-    case '/api/user/signup':
-      if (method === 'POST') {
-        return handleSignUp(request, env); 
-      }
-      break;
-    case '/api/user/login':
-      if (method === 'POST') {
-        return handleLogin(request, env); 
-      }
-      break; 
-    default:
-      return new Response('User API Not Found', { status: 404 });
-  }
-  return new Response('Method Not Allowed', { status: 405 });
-}
-
-async function handleProtectedApi(path, method, request, env) {
-    const authResult = await authorizeRequest(request, env);
-    if (authResult.response) {
-        return authResult.response; 
-    }
-    const userEmail = authResult.user.email; 
-
-    switch (path) {
-        case '/api/device/add':
-            if (method === 'POST') return handleDeviceAdd(request, env, userEmail);
-            break;
-        case '/api/device/list': 
-            if (method === 'GET') return handleDeviceList(env, userEmail);
-            break;
-        case '/api/device/delete': 
-            if (method === 'DELETE') return handleDeviceDelete(request, env, userEmail);
-            break;
-        case '/api/schedule/set':
-            if (method === 'POST') return handleSetSchedule(request, env, userEmail);
-            break;
-        case '/api/schedule/list':
-            if (method === 'GET') return handleScheduleList(env, userEmail);
-            break;
-        case '/api/schedule/delete':
-            if (method === 'DELETE') return handleScheduleDelete(request, env, userEmail);
-            break;
-        case '/api/schedule/toggle':
-            if (method === 'POST') return handleScheduleToggle(request, env, userEmail);
-            break;
-        default:
-            return new Response('Protected API Not Found', { status: 404 });
-    }
-
-    return new Response('Method Not Allowed', { status: 405 });
-}
