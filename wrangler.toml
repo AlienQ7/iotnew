@@ -11,5 +11,3 @@ database_id = "72e3d762-eca0-43d1-a1d9-fcf747e1cce9"
 type = "cron"
 crons = ["* * * * *"]
 
-
-
