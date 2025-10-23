@@ -1,5 +1,6 @@
 name = 'iotnew'
 main = "src/index.js"
+type = "module"
 compatibility_date = "2024-05-18"
 
 [[d1_databases]]
