@@ -1,13 +1,24 @@
+#name = 'iotnew'
+#main = "src/index.js"
+#type = "module"
+#compatibility_date = "2024-05-18"
+#[[d1_databases]]
+#binding = "newbind"
+#database_name = "newiotbase"
+#database_id = "72e3d762-eca0-43d1-a1d9-fcf747e1cce9"
+#[[triggers]]
+#type = "cron"
+#crons = ["* * * * *"]
+
 name = 'iotnew'
 main = "src/index.js"
-type = "module"
+type = "module"           
 compatibility_date = "2024-05-18"
 
 [[d1_databases]]
 binding = "newbind"
 database_name = "newiotbase"
 database_id = "72e3d762-eca0-43d1-a1d9-fcf747e1cce9"
-[[triggers]]
-type = "cron"
-crons = ["* * * * *"]
 
+[[triggers]]
+crons = ["* * * * *"]
